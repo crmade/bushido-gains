@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#10141A" />
+  <meta name="description" content="Rutina full body 3x/semana para hipertrofia y BJJ: videos de tecnica, registro de medidas corporales y editor de plan." />
+  <title>Bushido Gains - Entrenamiento para BJJ</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
+  <style>
+    body { margin: 0; background: #10141A; }
+    #boot { color: #97A1AD; font-family: system-ui, sans-serif; text-align: center; padding-top: 40vh; }
+  </style>
+</head>
+<body>
+  <div id="root"><p id="boot">Cargando Bushido Gains…</p></div>
+  <script type="text/babel" data-presets="react">
+const { useState, useEffect, useMemo } = React;
+
+// ---------- Paleta: gi, tatami y tiza ----------
+const C = {
+  bg: "#10141A",
+  surface: "#181F28",
+  surface2: "#212A36",
+  line: "#2C3644",
+  ink: "#0B0E12",
+  text: "#EDE8DF",
+  dim: "#97A1AD",
+  blue: "#4D7CFF",
+  purple: "#9B6DFF",
+  brown: "#C98A4B",
+  gold: "#E8C268",
+  green: "#54C08A",
+  red: "#E06060",
+};
+const FONT_DISPLAY = "'Barlow Condensed', 'Arial Narrow', sans-serif";
+const FONT_BODY = "'Barlow', system-ui, sans-serif";
+
+const uid = () => Math.random().toString(36).slice(2, 10);
+const todayStr = () => {
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+};
+const fmtDate = (iso) => {
+  if (!iso) return "";
+  const [y, m, d] = iso.split("-");
+  return d + "/" + m + "/" + y.slice(2);
+};
+
+function ytId(url) {
+  if (!url) return null;
+  const s = String(url).trim();
+  if (/^[\w-]{11}$/.test(s)) return s;
+  const m = s.match(/(?:youtu\.be\/|v=|shorts\/|embed\/|live\/)([\w-]{11})/);
+  return m ? m[1] : null;
+}
+
+// ---------- Rutina por defecto (full body 3x, enfoque hipertrofia + BJJ) ----------
+const ex = (name, sets, reps, video, muscle, tip) => ({ id: uid(), name, sets, reps, video, muscle, tip });
+
+function defaultRoutine() {
+  return {
+    days: [
+      {
+        id: "A", name: "Día A", color: C.blue,
+        exercises: [
+          ex("Sentadilla con barra", 4, "6-8", "OySgsMhs2pk", "Piernas", "Baja profundo y que las rodillas sigan la punta de los pies."),
+          ex("Press de banca con barra", 4, "6-8", "fqsTgdTPRQU", "Pecho", "Escápulas retraídas y pies firmes en el piso."),
+          ex("Remo con barra", 4, "8-10", "5Gg2OPlCkuE", "Espalda", "Torso inclinado estable, jala hacia el ombligo."),
+          ex("Press de hombro con mancuernas", 3, "10-12", "o5M9RZ-vWrc", "Hombros", "Core apretado, no arquees la zona lumbar."),
+          ex("Curl de bíceps en polea", 3, "12", "vpIQHsHU82Q", "Bíceps", "Codos pegados al cuerpo, baja controlado."),
+          ex("Elevaciones de piernas colgado", 3, "10-15", "yJW8Gsovjfo", "Core", "Sin balanceo: sube con el abdomen, no con impulso."),
+        ],
+      },
+      {
+        id: "B", name: "Día B", color: C.purple,
+        exercises: [
+          ex("Peso muerto convencional", 4, "5-6", "kancsOn7CJY", "Cadena posterior", "Espalda neutra y barra pegada a las piernas."),
+          ex("Dominadas", 4, "Al fallo", "8mhDd9Ahl1M", "Espalda", "Si no sacas 6+, usa jalón en polea o banda asistida."),
+          ex("Press inclinado con mancuernas", 3, "8-10", "9fy0A5xWsgk", "Pecho superior", "Banco a 30-45°, baja hasta sentir estiramiento."),
+          ex("Sentadilla búlgara", 3, "10 c/pierna", "IdilLr9nyuQ", "Piernas", "Pie trasero en banco o cajón, torso ligeramente adelante."),
+          ex("Face pull con cuerda", 3, "15", "Q18p2QtQAes", "Hombro posterior", "Jala hacia la cara abriendo los codos. Salud de hombro."),
+          ex("Pallof press en polea", 3, "12 c/lado", "4l848GyVWUM", "Core antirrotación", "Resiste el giro del torso. Oro para el BJJ."),
+        ],
+      },
+      {
+        id: "C", name: "Día C", color: C.brown,
+        exercises: [
+          ex("Sentadilla goblet con kettlebell", 4, "8-10", "EfQERnX-qGo", "Piernas", "Pesa pegada al pecho, torso erguido."),
+          ex("Press militar con barra", 4, "6-8", "xM2FGQuhZAY", "Hombros", "Glúteos y abdomen firmes, empuja la cabeza al frente al final."),
+          ex("Remo sentado en polea", 3, "10-12", "JtTusrYzAos", "Espalda", "Pecho arriba, lleva los codos atrás sin encoger hombros."),
+          ex("Hip thrust con barra", 3, "10-12", "b1nsBZm9sU8", "Glúteos", "Espalda alta en el banco, aprieta arriba 1 segundo."),
+          ex("Extensión de tríceps con cuerda", 3, "12-15", "YGrQysn3wAs", "Tríceps", "Codos fijos, abre la cuerda al extender."),
+          ex("Farmer carry con kettlebells", 3, "30-40 m", "oojPmgON094", "Agarre y core", "Camina erguido con paso corto. Agarre = grips de BJJ."),
+        ],
+      },
+    ],
+  };
+}
+
+// ---------- Almacenamiento persistente ----------
+const hasStorage = (() => {
+  try {
+    const k = "__hyt_test__";
+    localStorage.setItem(k, "1");
+    localStorage.removeItem(k);
+    return true;
+  } catch (e) { return false; }
+})();
+const store = {
+  async get(key) {
+    if (!hasStorage) return null;
+    try {
+      const v = localStorage.getItem(key);
+      return v ? JSON.parse(v) : null;
+    } catch (e) { return null; }
+  },
+  async set(key, val) {
+    if (!hasStorage) return false;
+    try {
+      localStorage.setItem(key, JSON.stringify(val));
+      return true;
+    } catch (e) { return false; }
+  },
+  async del(key) {
+    if (!hasStorage) return;
+    try { localStorage.removeItem(key); } catch (e) {}
+  },
+};
+
+// ---------- Piezas de UI ----------
+function Btn({ children, onClick, color, ghost, small, full, style }) {
+  return (
+    <button
+      onClick={onClick}
+      className={(small ? "px-3 py-1 text-sm " : "px-4 py-2 ") + (full ? "w-full " : "") + "rounded-lg font-semibold transition-opacity hover:opacity-85"}
+      style={{
+        background: ghost ? "transparent" : color || C.text,
+        color: ghost ? color || C.text : C.ink,
+        border: ghost ? "1px solid " + (color || C.line) : "none",
+        fontFamily: FONT_BODY,
+        ...style,
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function Field({ label, children }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-xs uppercase tracking-wider" style={{ color: C.dim }}>{label}</span>
+      {children}
+    </div>
+  );
+}
+
+const inputStyle = {
+  background: C.surface2,
+  border: "1px solid " + C.line,
+  color: C.text,
+  borderRadius: 8,
+  padding: "8px 10px",
+  fontFamily: FONT_BODY,
+  fontSize: 15,
+  width: "100%",
+};
+
+function Card({ children, style }) {
+  return (
+    <div className="rounded-xl p-4" style={{ background: C.surface, border: "1px solid " + C.line, ...style }}>
+      {children}
+    </div>
+  );
+}
+
+// Cinturón: banda negra con funda del color del día; cada raya blanca = ejercicio completado hoy
+function Belt({ color, total, done }) {
+  return (
+    <div className="w-full flex items-center rounded-sm overflow-hidden" style={{ height: 14, background: C.ink, border: "1px solid " + C.line }}>
+      <div className="flex-1" />
+      <div className="h-full flex items-center justify-center gap-1 px-2" style={{ background: color, minWidth: "46%" }}>
+        {Array.from({ length: total }).map((_, i) => (
+          <div key={i} className="h-full" style={{ width: 5, background: i < done ? "#F6F2E7" : "rgba(0,0,0,0.30)" }} />
+        ))}
+      </div>
+      <div className="h-full" style={{ width: "10%" }} />
+    </div>
+  );
+}
+
+function VideoEmbed({ video, dayColor }) {
+  const [open, setOpen] = useState(false);
+  const id = ytId(video);
+  if (!id) {
+    return <p className="text-sm mt-2" style={{ color: C.dim }}>Sin video. Activa el modo edición y pega un link de YouTube.</p>;
+  }
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} className="mt-3 w-full rounded-lg py-2 text-sm font-semibold flex items-center justify-center gap-2 transition-opacity hover:opacity-85" style={{ background: C.surface2, border: "1px solid " + C.line, color: dayColor }}>
+        <span style={{ fontSize: 11 }}>▶</span> Ver técnica
+      </button>
+    );
+  }
+  return (
+    <div className="mt-3">
+      <div className="w-full rounded-lg overflow-hidden" style={{ aspectRatio: "16/9", background: C.ink }}>
+        <iframe
+          width="100%" height="100%"
+          src={"https://www.youtube.com/embed/" + id + "?rel=0"}
+          title="Video de técnica"
+          frameBorder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+          loading="lazy"
+        />
+      </div>
+      <button onClick={() => setOpen(false)} className="mt-1 text-xs" style={{ color: C.dim, background: "none", border: "none", cursor: "pointer" }}>Ocultar video</button>
+    </div>
+  );
+}
+
+// ---------- App principal ----------
+function App() {
+  const [phase, setPhase] = useState("loading"); // loading | onboard | ready
+  const [users, setUsers] = useState([]);
+  const [activeId, setActiveId] = useState(null);
+  const [data, setData] = useState(null); // { metrics, routine, done }
+  const [tab, setTab] = useState("rutina");
+  const [dayIdx, setDayIdx] = useState(0);
+  const [editMode, setEditMode] = useState(false);
+  const [saveWarn, setSaveWarn] = useState(false);
+
+  useEffect(() => { init(); }, []);
+
+  async function init() {
+    if (!hasStorage) setSaveWarn(true);
+    const reg = await store.get("gymapp:users");
+    if (!reg || !reg.list || reg.list.length === 0) {
+      setPhase("onboard");
+      return;
+    }
+    setUsers(reg.list);
+    const id = reg.activeId && reg.list.some((u) => u.id === reg.activeId) ? reg.activeId : reg.list[0].id;
+    await loadUser(id, reg.list);
+  }
+
+  async function loadUser(id, list) {
+    let d = await store.get("gymapp:data:" + id);
+    if (!d) d = { metrics: [], routine: defaultRoutine(), done: {} };
+    if (!d.routine || !d.routine.days) d.routine = defaultRoutine();
+    if (!d.metrics) d.metrics = [];
+    if (!d.done) d.done = {};
+    setActiveId(id);
+    setData(d);
+    setPhase("ready");
+    await store.set("gymapp:users", { list: list || users, activeId: id });
+  }
+
+  async function persistData(next) {
+    setData(next);
+    const ok = await store.set("gymapp:data:" + activeId, next);
+    if (!ok && hasStorage) setSaveWarn(true);
+  }
+
+  async function createUser(name, height, weight) {
+    const user = { id: uid(), name: name.trim(), height: height ? Number(height) : null, createdAt: todayStr() };
+    const list = [...users, user];
+    setUsers(list);
+    const d = { metrics: [], routine: defaultRoutine(), done: {} };
+    if (weight) {
+      d.metrics.push({ id: uid(), date: todayStr(), weight: Number(weight), fat: null, muscle: null });
+    }
+    await store.set("gymapp:data:" + user.id, d);
+    setActiveId(user.id);
+    setData(d);
+    setPhase("ready");
+    setTab("rutina");
+    await store.set("gymapp:users", { list, activeId: user.id });
+  }
+
+  async function updateUser(patch) {
+    const list = users.map((u) => (u.id === activeId ? { ...u, ...patch } : u));
+    setUsers(list);
+    await store.set("gymapp:users", { list, activeId });
+  }
+
+  async function deleteUser(id) {
+    const list = users.filter((u) => u.id !== id);
+    setUsers(list);
+    await store.del("gymapp:data:" + id);
+    if (list.length === 0) {
+      await store.del("gymapp:users");
+      setActiveId(null);
+      setData(null);
+      setPhase("onboard");
+    } else if (id === activeId) {
+      await loadUser(list[0].id, list);
+    } else {
+      await store.set("gymapp:users", { list, activeId });
+    }
+  }
+
+  const activeUser = users.find((u) => u.id === activeId) || null;
+
+  // ---- Mutaciones de rutina ----
+  function patchExercise(dayId, exId, patch) {
+    const next = { ...data, routine: { days: data.routine.days.map((d) => d.id !== dayId ? d : { ...d, exercises: d.exercises.map((e) => (e.id === exId ? { ...e, ...patch } : e)) }) } };
+    persistData(next);
+  }
+  function addExercise(dayId) {
+    const ne = ex("Nuevo ejercicio", 3, "10", "", "", "");
+    const next = { ...data, routine: { days: data.routine.days.map((d) => (d.id !== dayId ? d : { ...d, exercises: [...d.exercises, ne] })) } };
+    persistData(next);
+  }
+  function removeExercise(dayId, exId) {
+    const next = { ...data, routine: { days: data.routine.days.map((d) => (d.id !== dayId ? d : { ...d, exercises: d.exercises.filter((e) => e.id !== exId) })) } };
+    persistData(next);
+  }
+  function moveExercise(dayId, exId, dir) {
+    const next = {
+      ...data,
+      routine: {
+        days: data.routine.days.map((d) => {
+          if (d.id !== dayId) return d;
+          const arr = [...d.exercises];
+          const i = arr.findIndex((e) => e.id === exId);
+          const j = i + dir;
+          if (i < 0 || j < 0 || j >= arr.length) return d;
+          const tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+          return { ...d, exercises: arr };
+        }),
+      },
+    };
+    persistData(next);
+  }
+  function resetRoutine() {
+    persistData({ ...data, routine: defaultRoutine() });
+    setEditMode(false);
+  }
+  function toggleDone(exId) {
+    const t = todayStr();
+    const day = { ...(data.done[t] || {}) };
+    if (day[exId]) delete day[exId]; else day[exId] = true;
+    persistData({ ...data, done: { ...data.done, [t]: day } });
+  }
+
+  // ---- Medidas ----
+  function addMetric(m) {
+    const metrics = [...data.metrics, { id: uid(), ...m }].sort((a, b) => (a.date < b.date ? -1 : 1));
+    persistData({ ...data, metrics });
+  }
+  function deleteMetric(id) {
+    persistData({ ...data, metrics: data.metrics.filter((m) => m.id !== id) });
+  }
+
+  // ---------- Render ----------
+  if (phase === "loading") {
+    return (
+      <Shell>
+        <div className="flex items-center justify-center" style={{ minHeight: "60vh" }}>
+          <p style={{ color: C.dim }}>Cargando tu plan…</p>
+        </div>
+      </Shell>
+    );
+  }
+
+  if (phase === "onboard") {
+    return (
+      <Shell>
+        <Onboard onCreate={createUser} saveWarn={saveWarn} />
+      </Shell>
+    );
+  }
+
+  return (
+    <Shell>
+      <header className="pt-5 pb-3 px-4" style={{ borderBottom: "1px solid " + C.line }}>
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <h1 className="leading-none" style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 34, letterSpacing: 1, textTransform: "uppercase" }}>
+              Bushido <span style={{ color: C.gold }}>Gains</span>
+            </h1>
+            <p className="text-sm mt-1" style={{ color: C.dim }}>Full body 3×/semana · hipertrofia para BJJ</p>
+          </div>
+          {activeUser && (
+            <button onClick={() => setTab("perfil")} className="rounded-full px-3 py-1 text-sm font-semibold" style={{ background: C.surface2, border: "1px solid " + C.line, color: C.text }}>
+              {activeUser.name.split(" ")[0]}
+            </button>
+          )}
+        </div>
+      </header>
+
+      {saveWarn && (
+        <div className="mx-4 mt-3 rounded-lg px-3 py-2 text-sm" style={{ background: "rgba(224,96,96,0.12)", border: "1px solid " + C.red, color: C.text }}>
+          Tu navegador tiene bloqueado el almacenamiento local: los cambios no se guardarán entre sesiones.
+        </div>
+      )}
+
+      <main className="px-4 pb-28 pt-4">
+        {tab === "rutina" && data && (
+          <RoutineTab
+            data={data}
+            dayIdx={dayIdx}
+            setDayIdx={setDayIdx}
+            editMode={editMode}
+            setEditMode={setEditMode}
+            patchExercise={patchExercise}
+            addExercise={addExercise}
+            removeExercise={removeExercise}
+            moveExercise={moveExercise}
+            resetRoutine={resetRoutine}
+            toggleDone={toggleDone}
+          />
+        )}
+        {tab === "progreso" && data && (
+          <ProgressTab data={data} user={activeUser} addMetric={addMetric} deleteMetric={deleteMetric} updateUser={updateUser} />
+        )}
+        {tab === "perfil" && (
+          <ProfileTab users={users} activeUser={activeUser} data={data} loadUser={(id) => loadUser(id)} createUser={createUser} updateUser={updateUser} deleteUser={deleteUser} />
+        )}
+      </main>
+
+      <nav className="fixed bottom-0 left-0 right-0 flex" style={{ background: C.surface, borderTop: "1px solid " + C.line }}>
+        {[
+          { id: "rutina", label: "Rutina", icon: "▣" },
+          { id: "progreso", label: "Progreso", icon: "↗" },
+          { id: "perfil", label: "Perfil", icon: "◉" },
+        ].map((t) => (
+          <button key={t.id} onClick={() => setTab(t.id)} className="flex-1 py-3 flex flex-col items-center gap-1" style={{ background: "none", border: "none", cursor: "pointer", color: tab === t.id ? C.gold : C.dim }}>
+            <span style={{ fontSize: 16 }}>{t.icon}</span>
+            <span className="text-xs font-semibold uppercase tracking-wide">{t.label}</span>
+          </button>
+        ))}
+      </nav>
+    </Shell>
+  );
+}
+
+function Shell({ children }) {
+  return (
+    <div className="min-h-screen w-full" style={{ background: C.bg, color: C.text, fontFamily: FONT_BODY }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600;700&display=swap');
+        input::placeholder { color: #6B7682; }
+        input:focus, button:focus { outline: 2px solid ${C.gold}; outline-offset: 1px; }
+        * { -webkit-tap-highlight-color: transparent; }
+      `}</style>
+      <div className="mx-auto" style={{ maxWidth: 560 }}>{children}</div>
+    </div>
+  );
+}
+
+// ---------- Onboarding ----------
+function Onboard({ onCreate, saveWarn }) {
+  const [name, setName] = useState("");
+  const [height, setHeight] = useState("");
+  const [weight, setWeight] = useState("");
+  const [err, setErr] = useState("");
+
+  return (
+    <div className="px-5 pt-12 pb-10">
+      <p className="text-xs uppercase tracking-widest mb-2" style={{ color: C.gold }}>Tu plan de fuerza para el tatami</p>
+      <h1 style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 44, lineHeight: 1, textTransform: "uppercase" }}>
+        Bushido <span style={{ color: C.gold }}>Gains</span>
+      </h1>
+      <p className="mt-3 mb-6" style={{ color: C.dim }}>
+        Rutina full body 3×/semana con videos de técnica, registro de medidas corporales y editor de plan. Crea tu perfil para empezar.
+      </p>
+      {saveWarn && (
+        <div className="mb-4 rounded-lg px-3 py-2 text-sm" style={{ background: "rgba(224,96,96,0.12)", border: "1px solid " + C.red }}>
+          Almacenamiento no disponible: tus datos no se guardarán entre sesiones.
+        </div>
+      )}
+      <Card>
+        <div className="flex flex-col gap-4">
+          <Field label="Nombre">
+            <input style={inputStyle} value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej. Andrés" />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Estatura (cm)">
+              <input style={inputStyle} type="number" inputMode="decimal" value={height} onChange={(e) => setHeight(e.target.value)} placeholder="175" />
+            </Field>
+            <Field label="Peso actual (kg)">
+              <input style={inputStyle} type="number" inputMode="decimal" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="78" />
+            </Field>
+          </div>
+          {err && <p className="text-sm" style={{ color: C.red }}>{err}</p>}
+          <Btn full color={C.gold} onClick={() => {
+            if (!name.trim()) { setErr("Escribe tu nombre para crear el perfil."); return; }
+            onCreate(name, height, weight);
+          }}>Crear mi perfil</Btn>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+// ---------- Pestaña Rutina ----------
+function RoutineTab({ data, dayIdx, setDayIdx, editMode, setEditMode, patchExercise, addExercise, removeExercise, moveExercise, resetRoutine, toggleDone }) {
+  const [confirmReset, setConfirmReset] = useState(false);
+  const day = data.routine.days[Math.min(dayIdx, data.routine.days.length - 1)];
+  const doneToday = data.done[todayStr()] || {};
+  const doneCount = day.exercises.filter((e) => doneToday[e.id]).length;
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Selector de día */}
+      <div className="grid grid-cols-3 gap-2">
+        {data.routine.days.map((d, i) => (
+          <button key={d.id} onClick={() => setDayIdx(i)} className="rounded-lg py-2 flex flex-col items-center gap-1" style={{
+            background: i === dayIdx ? C.surface2 : "transparent",
+            border: "1px solid " + (i === dayIdx ? d.color : C.line),
+            cursor: "pointer",
+          }}>
+            <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 22, color: i === dayIdx ? d.color : C.dim, textTransform: "uppercase", lineHeight: 1 }}>{d.id}</span>
+            <span className="text-xs" style={{ color: C.dim }}>{d.exercises.length} ejercicios</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Cinturón de progreso del día */}
+      <div>
+        <Belt color={day.color} total={day.exercises.length} done={doneCount} />
+        <div className="flex justify-between mt-1">
+          <span className="text-xs" style={{ color: C.dim }}>Cada raya blanca = un ejercicio completado hoy</span>
+          <span className="text-xs font-semibold" style={{ color: day.color }}>{doneCount}/{day.exercises.length}</span>
+        </div>
+      </div>
+
+      {/* Acciones */}
+      <div className="flex gap-2">
+        <Btn small ghost color={editMode ? C.gold : C.text} onClick={() => { setEditMode(!editMode); setConfirmReset(false); }}>
+          {editMode ? "✓ Terminar edición" : "✎ Editar rutina"}
+        </Btn>
+        {editMode && !confirmReset && (
+          <Btn small ghost color={C.red} onClick={() => setConfirmReset(true)}>Restaurar original</Btn>
+        )}
+        {editMode && confirmReset && (
+          <Btn small color={C.red} onClick={resetRoutine}>¿Seguro? Sí, restaurar</Btn>
+        )}
+      </div>
+
+      {/* Ejercicios */}
+      {day.exercises.map((e, i) => (
+        <Card key={e.id}>
+          {!editMode ? (
+            <div>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1">
+                  {e.muscle && (
+                    <span className="text-xs uppercase tracking-wider font-semibold" style={{ color: day.color }}>{e.muscle}</span>
+                  )}
+                  <h3 style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 22, lineHeight: 1.1, textTransform: "uppercase" }}>{e.name}</h3>
+                  <p className="mt-1 text-sm font-semibold">{e.sets} × {e.reps}</p>
+                  {e.tip && <p className="mt-1 text-sm" style={{ color: C.dim }}>{e.tip}</p>}
+                </div>
+                <button onClick={() => toggleDone(e.id)} aria-label="Marcar completado" className="rounded-full flex items-center justify-center" style={{
+                  width: 34, height: 34, flexShrink: 0, cursor: "pointer",
+                  background: doneToday[e.id] ? day.color : "transparent",
+                  border: "2px solid " + (doneToday[e.id] ? day.color : C.line),
+                  color: doneToday[e.id] ? C.ink : C.dim, fontWeight: 700,
+                }}>✓</button>
+              </div>
+              <VideoEmbed video={e.video} dayColor={day.color} />
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              <Field label="Ejercicio">
+                <input style={inputStyle} value={e.name} onChange={(ev) => patchExercise(day.id, e.id, { name: ev.target.value })} />
+              </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Series">
+                  <input style={inputStyle} type="number" inputMode="numeric" value={e.sets} onChange={(ev) => patchExercise(day.id, e.id, { sets: ev.target.value === "" ? "" : Number(ev.target.value) })} />
+                </Field>
+                <Field label="Reps">
+                  <input style={inputStyle} value={e.reps} onChange={(ev) => patchExercise(day.id, e.id, { reps: ev.target.value })} />
+                </Field>
+              </div>
+              <Field label="Músculo / etiqueta">
+                <input style={inputStyle} value={e.muscle} onChange={(ev) => patchExercise(day.id, e.id, { muscle: ev.target.value })} />
+              </Field>
+              <Field label="Nota técnica">
+                <input style={inputStyle} value={e.tip} onChange={(ev) => patchExercise(day.id, e.id, { tip: ev.target.value })} />
+              </Field>
+              <Field label="Link de YouTube (técnica)">
+                <input style={inputStyle} value={e.video} onChange={(ev) => patchExercise(day.id, e.id, { video: ev.target.value })} placeholder="https://youtube.com/watch?v=…" />
+              </Field>
+              <div className="flex gap-2 flex-wrap">
+                <Btn small ghost onClick={() => moveExercise(day.id, e.id, -1)} style={{ opacity: i === 0 ? 0.4 : 1 }}>↑ Subir</Btn>
+                <Btn small ghost onClick={() => moveExercise(day.id, e.id, 1)} style={{ opacity: i === day.exercises.length - 1 ? 0.4 : 1 }}>↓ Bajar</Btn>
+                <Btn small ghost color={C.red} onClick={() => removeExercise(day.id, e.id)}>Eliminar</Btn>
+              </div>
+            </div>
+          )}
+        </Card>
+      ))}
+
+      {editMode && (
+        <Btn full ghost color={day.color} onClick={() => addExercise(day.id)}>+ Agregar ejercicio al {day.name}</Btn>
+      )}
+
+      <WhenToChange />
+    </div>
+  );
+}
+
+function WhenToChange() {
+  const [open, setOpen] = useState(false);
+  return (
+    <Card style={{ background: C.surface2 }}>
+      <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between" style={{ background: "none", border: "none", cursor: "pointer", color: C.text }}>
+        <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 18, textTransform: "uppercase" }}>¿Cuándo cambiar la rutina?</span>
+        <span style={{ color: C.gold }}>{open ? "−" : "+"}</span>
+      </button>
+      {open && (
+        <div className="mt-3 text-sm flex flex-col gap-2" style={{ color: C.dim }}>
+          <p><b style={{ color: C.text }}>Mantén la estructura 8-12 semanas.</b> El músculo crece con progresión (más peso o más reps en los mismos ejercicios), no con variedad constante.</p>
+          <p><b style={{ color: C.text }}>Cambia un ejercicio si:</b> llevas 2-3 semanas estancado en peso y reps a pesar de comer y dormir bien, te genera molestia articular persistente, o el aburrimiento está afectando tu constancia.</p>
+          <p><b style={{ color: C.text }}>Cambio pequeño antes que cambio total:</b> sustituye por un ejercicio análogo (ej. remo con barra → remo en polea) o mueve el rango de reps (6-8 → 10-12) antes de rehacer todo el plan.</p>
+          <p><b style={{ color: C.text }}>Pesas antes de BJJ:</b> deja el fallo muscular solo para la última serie, y los días de peso muerto o sentadilla pesada evita rolling muy intenso justo después. Hidrátate y come algo entre sesiones.</p>
+          <p><b style={{ color: C.text }}>Para crecer:</b> superávit calórico ligero y 1.6-2 g de proteína por kg de peso al día. Sin eso, ninguna rutina funciona.</p>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// ---------- Pestaña Progreso ----------
+const METRIC_DEFS = {
+  weight: { label: "Peso", unit: "kg", color: C.gold },
+  fat: { label: "% Grasa", unit: "%", color: C.red },
+  muscle: { label: "% Músculo", unit: "%", color: C.green },
+  bmi: { label: "IMC", unit: "", color: C.blue },
+};
+
+function bmiOf(weight, heightCm) {
+  if (!weight || !heightCm) return null;
+  const h = heightCm / 100;
+  return Math.round((weight / (h * h)) * 10) / 10;
+}
+function bmiLabel(b) {
+  if (b == null) return "";
+  if (b < 18.5) return "Bajo peso";
+  if (b < 25) return "Normal";
+  if (b < 30) return "Sobrepeso";
+  return "Obesidad";
+}
+
+
+// Grafica SVG ligera, sin dependencias
+function MiniChart({ data, color, unit }) {
+  const W = 340, H = 210, P = { t: 14, r: 14, b: 26, l: 40 };
+  const vals = data.map((d) => d.v);
+  let min = Math.min(...vals);
+  let max = Math.max(...vals);
+  if (min === max) { min -= 1; max += 1; }
+  const pad = (max - min) * 0.12;
+  min -= pad; max += pad;
+  const x = (i) => P.l + (i * (W - P.l - P.r)) / Math.max(1, data.length - 1);
+  const y = (v) => P.t + (1 - (v - min) / (max - min)) * (H - P.t - P.b);
+  const pts = data.map((d, i) => x(i) + "," + y(d.v)).join(" ");
+  const ticks = [min, (min + max) / 2, max];
+  const r1 = (v) => Math.round(v * 10) / 10;
+  return (
+    <svg viewBox={"0 0 " + W + " " + H} className="w-full" style={{ height: 220, display: "block" }} role="img" aria-label="Grafica de progreso">
+      {ticks.map((t, i) => (
+        <g key={i}>
+          <line x1={P.l} x2={W - P.r} y1={y(t)} y2={y(t)} stroke={C.line} strokeDasharray="3 3" />
+          <text x={P.l - 6} y={y(t) + 4} textAnchor="end" fontSize="10" fill={C.dim}>{r1(t)}</text>
+        </g>
+      ))}
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+      {data.map((d, i) => (
+        <circle key={i} cx={x(i)} cy={y(d.v)} r="3.5" fill={color}>
+          <title>{d.label + ": " + d.v + (unit ? " " + unit : "")}</title>
+        </circle>
+      ))}
+      <text x={P.l} y={H - 8} fontSize="10" fill={C.dim}>{data[0].label}</text>
+      <text x={W - P.r} y={H - 8} fontSize="10" fill={C.dim} textAnchor="end">{data[data.length - 1].label}</text>
+    </svg>
+  );
+}
+
+function ProgressTab({ data, user, addMetric, deleteMetric, updateUser }) {
+  const [date, setDate] = useState(todayStr());
+  const [weight, setWeight] = useState("");
+  const [fat, setFat] = useState("");
+  const [muscle, setMuscle] = useState("");
+  const [hEdit, setHEdit] = useState("");
+  const [metric, setMetric] = useState("weight");
+  const [err, setErr] = useState("");
+
+  const height = user && user.height ? user.height : null;
+  const metricsAsc = useMemo(() => [...data.metrics].sort((a, b) => (a.date < b.date ? -1 : 1)), [data.metrics]);
+  const last = metricsAsc[metricsAsc.length - 1] || null;
+  const first = metricsAsc[0] || null;
+  const previewBmi = bmiOf(parseFloat(weight), height);
+
+  const chartData = metricsAsc
+    .map((m) => {
+      let v = null;
+      if (metric === "bmi") v = bmiOf(m.weight, height);
+      else v = m[metric] != null && m[metric] !== "" ? Number(m[metric]) : null;
+      return { label: fmtDate(m.date), v };
+    })
+    .filter((d) => d.v != null && !Number.isNaN(d.v));
+
+  const def = METRIC_DEFS[metric];
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Resumen */}
+      <div className="grid grid-cols-3 gap-2">
+        <Card style={{ padding: 12 }}>
+          <p className="text-xs uppercase" style={{ color: C.dim }}>Peso actual</p>
+          <p style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 26 }}>{last && last.weight ? last.weight + " kg" : "—"}</p>
+        </Card>
+        <Card style={{ padding: 12 }}>
+          <p className="text-xs uppercase" style={{ color: C.dim }}>IMC</p>
+          <p style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 26 }}>{last && height ? bmiOf(last.weight, height) : "—"}</p>
+          <p className="text-xs" style={{ color: C.dim }}>{last && height ? bmiLabel(bmiOf(last.weight, height)) : ""}</p>
+        </Card>
+        <Card style={{ padding: 12 }}>
+          <p className="text-xs uppercase" style={{ color: C.dim }}>Cambio</p>
+          <p style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 26, color: C.green }}>
+            {first && last && first.id !== last.id && first.weight && last.weight
+              ? (last.weight - first.weight > 0 ? "+" : "") + Math.round((last.weight - first.weight) * 10) / 10 + " kg"
+              : "—"}
+          </p>
+        </Card>
+      </div>
+
+      {/* Estatura faltante */}
+      {!height && (
+        <Card>
+          <p className="text-sm mb-2" style={{ color: C.dim }}>Registra tu estatura para calcular el IMC automáticamente.</p>
+          <div className="flex gap-2">
+            <input style={{ ...inputStyle, flex: 1 }} type="number" inputMode="decimal" placeholder="Estatura en cm" value={hEdit} onChange={(e) => setHEdit(e.target.value)} />
+            <Btn color={C.gold} onClick={() => { if (hEdit) updateUser({ height: Number(hEdit) }); }}>Guardar</Btn>
+          </div>
+        </Card>
+      )}
+
+      {/* Nueva medida */}
+      <Card>
+        <h3 className="mb-3" style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 20, textTransform: "uppercase" }}>Nueva medida</h3>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Fecha">
+            <input style={inputStyle} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </Field>
+          <Field label="Peso (kg)">
+            <input style={inputStyle} type="number" inputMode="decimal" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="78.5" />
+          </Field>
+          <Field label="% Grasa (opcional)">
+            <input style={inputStyle} type="number" inputMode="decimal" value={fat} onChange={(e) => setFat(e.target.value)} placeholder="18" />
+          </Field>
+          <Field label="% Músculo (opcional)">
+            <input style={inputStyle} type="number" inputMode="decimal" value={muscle} onChange={(e) => setMuscle(e.target.value)} placeholder="42" />
+          </Field>
+        </div>
+        {previewBmi != null && (
+          <p className="text-sm mt-2" style={{ color: C.dim }}>IMC calculado: <b style={{ color: C.text }}>{previewBmi}</b> ({bmiLabel(previewBmi)})</p>
+        )}
+        {err && <p className="text-sm mt-2" style={{ color: C.red }}>{err}</p>}
+        <div className="mt-3">
+          <Btn full color={C.gold} onClick={() => {
+            const w = parseFloat(weight);
+            if (!date) { setErr("Falta la fecha."); return; }
+            if (!w || Number.isNaN(w)) { setErr("Escribe un peso válido."); return; }
+            setErr("");
+            addMetric({ date, weight: w, fat: fat === "" ? null : parseFloat(fat), muscle: muscle === "" ? null : parseFloat(muscle) });
+            setWeight(""); setFat(""); setMuscle("");
+          }}>Guardar medida</Btn>
+        </div>
+      </Card>
+
+      {/* Gráfica */}
+      <Card>
+        <div className="flex gap-2 mb-3 flex-wrap">
+          {Object.keys(METRIC_DEFS).map((k) => (
+            <button key={k} onClick={() => setMetric(k)} className="rounded-full px-3 py-1 text-sm font-semibold" style={{
+              background: metric === k ? METRIC_DEFS[k].color : "transparent",
+              color: metric === k ? C.ink : C.dim,
+              border: "1px solid " + (metric === k ? METRIC_DEFS[k].color : C.line),
+              cursor: "pointer",
+            }}>{METRIC_DEFS[k].label}</button>
+          ))}
+        </div>
+        {chartData.length >= 2 ? (
+          <MiniChart data={chartData} color={def.color} unit={def.unit} />
+        ) : (
+          <p className="text-sm" style={{ color: C.dim }}>Registra al menos 2 medidas de {def.label.toLowerCase()} para ver la tendencia.</p>
+        )}
+      </Card>
+
+      {/* Historial */}
+      <Card>
+        <h3 className="mb-2" style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 20, textTransform: "uppercase" }}>Historial</h3>
+        {metricsAsc.length === 0 && <p className="text-sm" style={{ color: C.dim }}>Aún no hay medidas registradas.</p>}
+        <div className="flex flex-col">
+          {[...metricsAsc].reverse().map((m) => (
+            <div key={m.id} className="flex items-center justify-between py-2" style={{ borderBottom: "1px solid " + C.line }}>
+              <div>
+                <p className="font-semibold text-sm">{fmtDate(m.date)} · {m.weight} kg{height ? " · IMC " + bmiOf(m.weight, height) : ""}</p>
+                <p className="text-xs" style={{ color: C.dim }}>
+                  {m.fat != null ? "Grasa " + m.fat + "%" : ""}{m.fat != null && m.muscle != null ? " · " : ""}{m.muscle != null ? "Músculo " + m.muscle + "%" : ""}
+                  {m.fat == null && m.muscle == null ? "Solo peso" : ""}
+                </p>
+              </div>
+              <button onClick={() => deleteMetric(m.id)} aria-label="Eliminar medida" style={{ background: "none", border: "none", color: C.dim, cursor: "pointer", fontSize: 18 }}>×</button>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+// ---------- Pestaña Perfil ----------
+function ProfileTab({ users, activeUser, data, loadUser, createUser, updateUser, deleteUser }) {
+  const [name, setName] = useState("");
+  const [height, setHeight] = useState("");
+  const [editH, setEditH] = useState("");
+  const [confirmDel, setConfirmDel] = useState(null);
+  const [showNew, setShowNew] = useState(false);
+
+  return (
+    <div className="flex flex-col gap-4">
+      {activeUser && (
+        <Card>
+          <p className="text-xs uppercase tracking-wider mb-1" style={{ color: C.gold }}>Perfil activo</p>
+          <h3 style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 28, textTransform: "uppercase" }}>{activeUser.name}</h3>
+          <p className="text-sm mt-1" style={{ color: C.dim }}>
+            Desde {fmtDate(activeUser.createdAt)} · {data ? data.metrics.length : 0} medidas registradas
+          </p>
+          <div className="mt-3 flex items-end gap-2">
+            <Field label={"Estatura (cm)" + (activeUser.height ? " · actual: " + activeUser.height : "")}>
+              <input style={inputStyle} type="number" inputMode="decimal" value={editH} onChange={(e) => setEditH(e.target.value)} placeholder={activeUser.height ? String(activeUser.height) : "175"} />
+            </Field>
+            <Btn color={C.gold} onClick={() => { if (editH) { updateUser({ height: Number(editH) }); setEditH(""); } }}>Guardar</Btn>
+          </div>
+        </Card>
+      )}
+
+      <Card>
+        <h3 className="mb-2" style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 20, textTransform: "uppercase" }}>Usuarios</h3>
+        <div className="flex flex-col gap-2">
+          {users.map((u) => (
+            <div key={u.id} className="flex items-center justify-between rounded-lg px-3 py-2" style={{ background: C.surface2, border: "1px solid " + (u.id === activeUser?.id ? C.gold : C.line) }}>
+              <span className="font-semibold">{u.name}</span>
+              <div className="flex gap-2 items-center">
+                {u.id !== activeUser?.id && <Btn small ghost onClick={() => loadUser(u.id)}>Usar</Btn>}
+                {confirmDel === u.id ? (
+                  <Btn small color={C.red} onClick={() => { deleteUser(u.id); setConfirmDel(null); }}>¿Seguro?</Btn>
+                ) : (
+                  <button onClick={() => setConfirmDel(u.id)} aria-label="Eliminar usuario" style={{ background: "none", border: "none", color: C.dim, cursor: "pointer", fontSize: 18 }}>×</button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {!showNew ? (
+          <div className="mt-3"><Btn full ghost color={C.gold} onClick={() => setShowNew(true)}>+ Crear otro usuario</Btn></div>
+        ) : (
+          <div className="mt-3 flex flex-col gap-3">
+            <Field label="Nombre">
+              <input style={inputStyle} value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre del nuevo usuario" />
+            </Field>
+            <Field label="Estatura (cm, opcional)">
+              <input style={inputStyle} type="number" inputMode="decimal" value={height} onChange={(e) => setHeight(e.target.value)} placeholder="170" />
+            </Field>
+            <div className="flex gap-2">
+              <Btn color={C.gold} onClick={() => { if (name.trim()) { createUser(name, height, null); setName(""); setHeight(""); setShowNew(false); } }}>Crear</Btn>
+              <Btn ghost onClick={() => setShowNew(false)}>Cancelar</Btn>
+            </div>
+          </div>
+        )}
+      </Card>
+
+      <Card style={{ background: C.surface2 }}>
+        <p className="text-sm" style={{ color: C.dim }}>
+          Cada usuario tiene su propia rutina, medidas e historial, guardados en el navegador de este dispositivo (localStorage). Los videos son de YouTube: puedes reemplazar cualquiera desde <b style={{ color: C.text }}>Rutina → Editar rutina</b> pegando otro link.
+        </p>
+      </Card>
+    </div>
+  );
+}
+
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<App />);
+  </script>
+</body>
+</html>
