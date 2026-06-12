@@ -63,8 +63,8 @@ function ytId(url) {
 // PASO DE CONFIGURACIÓN: pega aquí la URL de tu proyecto y la clave "anon public"
 // (Supabase → Settings → API). Si dejas los placeholders, la app funciona en modo
 // local sin cuentas, exactamente como antes.
-const SUPABASE_URL = "PEGA_AQUI_TU_URL";
-const SUPABASE_ANON_KEY = "PEGA_AQUI_TU_ANON_KEY";
+const SUPABASE_URL = "https://doxspbortncmjrcaqzfj.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_ug5llGjPyVqYWcDbRd8Rnw_z1osCOLb";
 
 const sb = (typeof window !== "undefined" && window.supabase && SUPABASE_URL.indexOf("supabase.co") !== -1 && SUPABASE_ANON_KEY.length > 30)
   ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
