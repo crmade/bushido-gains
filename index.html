@@ -10,6 +10,7 @@
   <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     body { margin: 0; background: #10141A; }
     #boot { color: #97A1AD; font-family: system-ui, sans-serif; text-align: center; padding-top: 40vh; }
@@ -18,7 +19,7 @@
 <body>
   <div id="root"><p id="boot">Cargando Bushido Gains…</p></div>
   <script type="text/babel" data-presets="react">
-const { useState, useEffect, useMemo } = React;
+const { useState, useEffect, useMemo, useRef } = React;
 
 // ---------- Paleta: gi, tatami y tiza ----------
 const C = {
@@ -58,11 +59,60 @@ function ytId(url) {
   return m ? m[1] : null;
 }
 
+// ---------- Supabase: cuentas con Google y sincronización en la nube ----------
+// PASO DE CONFIGURACIÓN: pega aquí la URL de tu proyecto y la clave "anon public"
+// (Supabase → Settings → API). Si dejas los placeholders, la app funciona en modo
+// local sin cuentas, exactamente como antes.
+const SUPABASE_URL = "PEGA_AQUI_TU_URL";
+const SUPABASE_ANON_KEY = "PEGA_AQUI_TU_ANON_KEY";
+
+const sb = (typeof window !== "undefined" && window.supabase && SUPABASE_URL.indexOf("supabase.co") !== -1 && SUPABASE_ANON_KEY.length > 30)
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null;
+
+function normalizeData(d) {
+  const n = d && typeof d === "object" ? d : {};
+  if (!n.routine || !n.routine.days) n.routine = defaultRoutine();
+  if (!n.routine.warmup) n.routine.warmup = defaultWarmup();
+  if (!n.metrics) n.metrics = [];
+  if (!n.done) n.done = {};
+  if (!n.profile) n.profile = {};
+  return n;
+}
+
+async function cloudLoad(uid) {
+  if (!sb) return null;
+  const { data, error } = await sb.from("user_data").select("data").eq("user_id", uid).maybeSingle();
+  if (error) throw error;
+  return data ? data.data : null;
+}
+
+async function cloudSave(uid, payload) {
+  if (!sb) return false;
+  const { error } = await sb.from("user_data").upsert({ user_id: uid, data: payload, updated_at: new Date().toISOString() });
+  return !error;
+}
+
 // ---------- Rutina por defecto (full body 3x, enfoque hipertrofia + BJJ) ----------
 const ex = (name, sets, reps, video, muscle, tip) => ({ id: uid(), name, sets, reps, video, muscle, tip });
 
+function defaultWarmup() {
+  const wu = (name, detail) => ({ id: uid(), name, detail });
+  return [
+    wu("Cardio suave", "3-4 min de bici o saltos de tijera, hasta sudar ligero"),
+    wu("Círculos articulares", "Cuello, hombros, muñecas, cadera y tobillos · 8-10 por articulación"),
+    wu("Dislocaciones de hombro", "10-12 reps con palo o banda, agarre amplio"),
+    wu("Gato-vaca + rotación torácica", "8 reps + 8 por lado"),
+    wu("Balanceos de pierna", "10 por pierna, al frente y lateral"),
+    wu("Sentadilla profunda sostenida", "30 segundos abajo, abriendo rodillas con los codos"),
+    wu("Activación de escápulas", "15-20 face pulls ligeros en polea"),
+    wu("Series de aproximación", "Primer básico del día: barra vacía ×10 → 50% ×6 → 70% ×3"),
+  ];
+}
+
 function defaultRoutine() {
   return {
+    warmup: defaultWarmup(),
     days: [
       {
         id: "A", name: "Día A", color: C.blue,
@@ -100,6 +150,52 @@ function defaultRoutine() {
     ],
   };
 }
+
+// ---------- Generador con IA: equipo y biblioteca ----------
+const EQUIPMENT = [
+  { key: "barra", label: "Barra y discos" },
+  { key: "rack", label: "Rack de sentadillas" },
+  { key: "mancuernas", label: "Mancuernas" },
+  { key: "kettlebell", label: "Kettlebells" },
+  { key: "polea", label: "Polea / cables" },
+  { key: "banco", label: "Banco" },
+  { key: "dominadas", label: "Barra de dominadas" },
+  { key: "trx", label: "TRX / suspensión" },
+  { key: "cajon", label: "Cajón pliométrico" },
+  { key: "corporal", label: "Peso corporal" },
+];
+
+const LI = (name, muscle, video, equip) => ({ name, muscle, video, equip });
+const LIBRARY = [
+  LI("Sentadilla con barra", "Piernas", "OySgsMhs2pk", ["barra", "rack"]),
+  LI("Press de banca con barra", "Pecho", "fqsTgdTPRQU", ["barra", "banco", "rack"]),
+  LI("Remo con barra", "Espalda", "5Gg2OPlCkuE", ["barra"]),
+  LI("Press de hombro con mancuernas", "Hombros", "o5M9RZ-vWrc", ["mancuernas"]),
+  LI("Curl de bíceps en polea", "Bíceps", "vpIQHsHU82Q", ["polea"]),
+  LI("Elevaciones de piernas colgado", "Core", "yJW8Gsovjfo", ["dominadas"]),
+  LI("Peso muerto convencional", "Cadena posterior", "kancsOn7CJY", ["barra"]),
+  LI("Dominadas", "Espalda", "8mhDd9Ahl1M", ["dominadas"]),
+  LI("Press inclinado con mancuernas", "Pecho superior", "9fy0A5xWsgk", ["mancuernas", "banco"]),
+  LI("Sentadilla búlgara", "Piernas", "IdilLr9nyuQ", ["banco"]),
+  LI("Face pull con cuerda", "Hombro posterior", "Q18p2QtQAes", ["polea"]),
+  LI("Pallof press en polea", "Core antirrotación", "4l848GyVWUM", ["polea"]),
+  LI("Sentadilla goblet con kettlebell", "Piernas", "EfQERnX-qGo", ["kettlebell"]),
+  LI("Press militar con barra", "Hombros", "xM2FGQuhZAY", ["barra", "rack"]),
+  LI("Remo sentado en polea", "Espalda", "JtTusrYzAos", ["polea"]),
+  LI("Hip thrust con barra", "Glúteos", "b1nsBZm9sU8", ["barra", "banco"]),
+  LI("Extensión de tríceps con cuerda", "Tríceps", "YGrQysn3wAs", ["polea"]),
+  LI("Farmer carry con kettlebells", "Agarre y core", "oojPmgON094", ["kettlebell"]),
+  LI("Flexiones de pecho", "Pecho", "VsiEATZdNQw", ["corporal"]),
+  LI("Kettlebell swing ruso", "Cadena posterior", "chFTOa8Zicc", ["kettlebell"]),
+  LI("Remo con mancuerna a una mano", "Espalda", "fZYGcNtMWSc", ["mancuernas", "banco"]),
+  LI("Zancadas", "Piernas", "gItknnU0qkM", ["corporal"]),
+  LI("Press de banca con mancuernas", "Pecho", "MeyuOEimrC0", ["mancuernas", "banco"]),
+  LI("Curl de bíceps con mancuernas", "Bíceps", "8BsqlTaRg6Q", ["mancuernas"]),
+  LI("Curl martillo con mancuernas", "Bíceps y antebrazo", "mPvlpDWIoDA", ["mancuernas"]),
+  LI("Plancha abdominal", "Core", "O4bNV8W4CkU", ["corporal"]),
+  LI("Remo invertido en TRX", "Espalda", "9_iEY6nT8TM", ["trx"]),
+  LI("Box jump (salto al cajón)", "Potencia de piernas", "bbFEYR3i8JU", ["cajon"]),
+];
 
 // ---------- Almacenamiento persistente ----------
 const hasStorage = (() => {
@@ -234,11 +330,22 @@ function App() {
   const [dayIdx, setDayIdx] = useState(0);
   const [editMode, setEditMode] = useState(false);
   const [saveWarn, setSaveWarn] = useState(false);
+  const [session, setSession] = useState(null);
+  const [cloudErr, setCloudErr] = useState(false);
+  const lastUid = useRef(null);
 
   useEffect(() => { init(); }, []);
 
   async function init() {
     if (!hasStorage) setSaveWarn(true);
+    if (sb) {
+      sb.auth.onAuthStateChange((event, sess) => {
+        if (sess && lastUid.current !== sess.user.id) onLogin(sess);
+        if (event === "SIGNED_OUT") window.location.reload();
+      });
+      const { data: s } = await sb.auth.getSession();
+      if (s && s.session) { await onLogin(s.session); return; }
+    }
     const reg = await store.get("gymapp:users");
     if (!reg || !reg.list || reg.list.length === 0) {
       setPhase("onboard");
@@ -249,10 +356,49 @@ function App() {
     await loadUser(id, reg.list);
   }
 
+  async function onLogin(sess) {
+    if (lastUid.current === sess.user.id) { setSession(sess); return; }
+    lastUid.current = sess.user.id;
+    setSession(sess);
+    setPhase("loading");
+    const reg = await store.get("gymapp:users");
+    setUsers(reg && reg.list ? reg.list : []);
+    let d = null;
+    try {
+      d = await cloudLoad(sess.user.id);
+    } catch (e) {
+      setCloudErr(true);
+    }
+    if (!d) d = (await store.get("gymapp:cloudcache:" + sess.user.id)) || { metrics: [], routine: defaultRoutine(), done: {}, profile: {} };
+    d = normalizeData(d);
+    setActiveId("cloud:" + sess.user.id);
+    setData(d);
+    setPhase("ready");
+    store.set("gymapp:cloudcache:" + sess.user.id, d);
+    cloudSave(sess.user.id, d).then((ok) => setCloudErr(!ok));
+  }
+
+  async function signInGoogle() {
+    if (!sb) return;
+    await sb.auth.signInWithOAuth({ provider: "google", options: { redirectTo: window.location.origin + window.location.pathname } });
+  }
+
+  async function signOutGoogle() {
+    if (!sb) return;
+    lastUid.current = null;
+    await sb.auth.signOut();
+  }
+
+  async function importLocalToCloud(localId) {
+    const d = await store.get("gymapp:data:" + localId);
+    if (d) await persistData(normalizeData(d));
+  }
+
   async function loadUser(id, list) {
     let d = await store.get("gymapp:data:" + id);
     if (!d) d = { metrics: [], routine: defaultRoutine(), done: {} };
     if (!d.routine || !d.routine.days) d.routine = defaultRoutine();
+    if (!d.routine.warmup) { d.routine.warmup = defaultWarmup(); await store.set("gymapp:data:" + id, d); }
     if (!d.metrics) d.metrics = [];
     if (!d.done) d.done = {};
     setActiveId(id);
@@ -263,6 +409,12 @@ function App() {
 
   async function persistData(next) {
     setData(next);
+    if (session && sb) {
+      store.set("gymapp:cloudcache:" + session.user.id, next);
+      const ok = await cloudSave(session.user.id, next);
+      setCloudErr(!ok);
+      return;
+    }
     const ok = await store.set("gymapp:data:" + activeId, next);
     if (!ok && hasStorage) setSaveWarn(true);
   }
@@ -284,6 +436,10 @@ function App() {
   }
 
   async function updateUser(patch) {
+    if (session) {
+      await persistData({ ...data, profile: { ...(data.profile || {}), ...patch } });
+      return;
+    }
     const list = users.map((u) => (u.id === activeId ? { ...u, ...patch } : u));
     setUsers(list);
     await store.set("gymapp:users", { list, activeId });
@@ -305,7 +461,10 @@ function App() {
     }
   }
 
-  const activeUser = users.find((u) => u.id === activeId) || null;
+  const meta = session && session.user.user_metadata ? session.user.user_metadata : {};
+  const activeUser = session
+    ? { id: "cloud", name: meta.full_name || meta.name || session.user.email || "Mi cuenta", height: data && data.profile ? data.profile.height : null, createdAt: (session.user.created_at || "").slice(0, 10), email: session.user.email || "", avatar: meta.avatar_url || meta.picture || null }
+    : (users.find((u) => u.id === activeId) || null);
 
   // ---- Mutaciones de rutina ----
   function patchExercise(dayId, exId, patch) {
@@ -342,6 +501,12 @@ function App() {
     persistData({ ...data, routine: defaultRoutine() });
     setEditMode(false);
   }
+  function applyGeneratedDays(days) {
+    persistData({ ...data, routine: { warmup: (data.routine && data.routine.warmup) || defaultWarmup(), days } });
+    setDayIdx(0);
+    setEditMode(false);
+    setTab("rutina");
+  }
   function toggleDone(exId) {
     const t = todayStr();
     const day = { ...(data.done[t] || {}) };
@@ -372,7 +537,7 @@ function App() {
   if (phase === "onboard") {
     return (
       <Shell>
-        <Onboard onCreate={createUser} saveWarn={saveWarn} />
+        <Onboard onCreate={createUser} saveWarn={saveWarn} sbReady={!!sb} onSignIn={signInGoogle} />
       </Shell>
     );
   }
@@ -401,6 +566,12 @@ function App() {
         </div>
       )}
 
+      {cloudErr && session && (
+        <div className="mx-4 mt-3 rounded-lg px-3 py-2 text-sm" style={{ background: "rgba(224,96,96,0.12)", border: "1px solid " + C.red, color: C.text }}>
+          No se pudo sincronizar con la nube. Tus cambios quedaron guardados en este dispositivo y se reintentará al guardar de nuevo.
+        </div>
+      )}
+
       <main className="px-4 pb-28 pt-4">
         {tab === "rutina" && data && (
           <RoutineTab
@@ -417,17 +588,25 @@ function App() {
             toggleDone={toggleDone}
           />
         )}
+        {tab === "generar" && data && (
+          <GeneratorTab applyDays={applyGeneratedDays} />
+        )}
         {tab === "progreso" && data && (
           <ProgressTab data={data} user={activeUser} addMetric={addMetric} deleteMetric={deleteMetric} updateUser={updateUser} />
         )}
         {tab === "perfil" && (
-          <ProfileTab users={users} activeUser={activeUser} data={data} loadUser={(id) => loadUser(id)} createUser={createUser} updateUser={updateUser} deleteUser={deleteUser} />
+          session ? (
+            <CloudProfileTab user={activeUser} data={data} users={users} updateUser={updateUser} importLocal={importLocalToCloud} onSignOut={signOutGoogle} cloudErr={cloudErr} />
+          ) : (
+            <ProfileTab users={users} activeUser={activeUser} data={data} loadUser={(id) => loadUser(id)} createUser={createUser} updateUser={updateUser} deleteUser={deleteUser} sbReady={!!sb} onSignIn={signInGoogle} />
+          )
         )}
       </main>
 
       <nav className="fixed bottom-0 left-0 right-0 flex" style={{ background: C.surface, borderTop: "1px solid " + C.line }}>
         {[
           { id: "rutina", label: "Rutina", icon: "▣" },
+          { id: "generar", label: "Generar", icon: "✦" },
           { id: "progreso", label: "Progreso", icon: "↗" },
           { id: "perfil", label: "Perfil", icon: "◉" },
         ].map((t) => (
@@ -456,7 +635,7 @@ function Shell({ children }) {
 }
 
 // ---------- Onboarding ----------
-function Onboard({ onCreate, saveWarn }) {
+function Onboard({ onCreate, saveWarn, sbReady, onSignIn }) {
   const [name, setName] = useState("");
   const [height, setHeight] = useState("");
   const [weight, setWeight] = useState("");
@@ -474,6 +653,12 @@ function Onboard({ onCreate, saveWarn }) {
       {saveWarn && (
         <div className="mb-4 rounded-lg px-3 py-2 text-sm" style={{ background: "rgba(224,96,96,0.12)", border: "1px solid " + C.red }}>
           Almacenamiento no disponible: tus datos no se guardarán entre sesiones.
+        </div>
+      )}
+      {sbReady && (
+        <div className="mb-4">
+          <Btn full onClick={onSignIn}>Continuar con Google</Btn>
+          <p className="text-xs text-center mt-2" style={{ color: C.dim }}>Sincroniza entre dispositivos · o crea un perfil local abajo</p>
         </div>
       )}
       <Card>
@@ -522,6 +707,9 @@ function RoutineTab({ data, dayIdx, setDayIdx, editMode, setEditMode, patchExerc
           </button>
         ))}
       </div>
+
+      {/* Calentamiento */}
+      <WarmupCard warmup={data.routine.warmup || []} doneToday={doneToday} toggleDone={toggleDone} />
 
       {/* Cinturón de progreso del día */}
       <div>
@@ -606,6 +794,42 @@ function RoutineTab({ data, dayIdx, setDayIdx, editMode, setEditMode, patchExerc
 
       <WhenToChange />
     </div>
+  );
+}
+
+function WarmupCard({ warmup, doneToday, toggleDone }) {
+  const [open, setOpen] = useState(false);
+  const done = warmup.filter((w) => doneToday[w.id]).length;
+  const complete = done === warmup.length && warmup.length > 0;
+  return (
+    <Card style={{ border: "1px solid " + (complete ? C.green : C.line) }}>
+      <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between" style={{ background: "none", border: "none", cursor: "pointer", color: C.text }}>
+        <span className="flex items-center gap-2">
+          <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 18, textTransform: "uppercase" }}>Calentamiento</span>
+          <span className="text-xs" style={{ color: C.dim }}>~10 min</span>
+        </span>
+        <span className="text-sm font-semibold" style={{ color: complete ? C.green : C.gold }}>{done}/{warmup.length} {open ? "−" : "+"}</span>
+      </button>
+      {open && (
+        <div className="mt-3 flex flex-col gap-3">
+          {warmup.map((w) => (
+            <div key={w.id} className="flex items-start gap-3">
+              <button onClick={() => toggleDone(w.id)} aria-label="Marcar paso de calentamiento" className="rounded-full flex items-center justify-center" style={{
+                width: 26, height: 26, flexShrink: 0, cursor: "pointer", marginTop: 2,
+                background: doneToday[w.id] ? C.gold : "transparent",
+                border: "2px solid " + (doneToday[w.id] ? C.gold : C.line),
+                color: doneToday[w.id] ? C.ink : C.dim, fontWeight: 700, fontSize: 12,
+              }}>✓</button>
+              <div>
+                <p className="font-semibold text-sm" style={{ textDecoration: doneToday[w.id] ? "line-through" : "none", opacity: doneToday[w.id] ? 0.6 : 1 }}>{w.name}</p>
+                <p className="text-xs" style={{ color: C.dim }}>{w.detail}</p>
+              </div>
+            </div>
+          ))}
+          <p className="text-xs mt-1" style={{ color: C.dim }}>Las series de aproximación son la parte más importante: nunca pases directo al peso de trabajo en sentadilla, peso muerto o press.</p>
+        </div>
+      )}
+    </Card>
   );
 }
 
@@ -821,8 +1045,280 @@ function ProgressTab({ data, user, addMetric, deleteMetric, updateUser }) {
   );
 }
 
+// ---------- Pestaña Generar (IA) ----------
+function GeneratorTab({ applyDays }) {
+  const [goal, setGoal] = useState("");
+  const [nDays, setNDays] = useState(3);
+  const [sel, setSel] = useState(() => new Set(EQUIPMENT.map((e) => e.key)));
+  const [apiKey, setApiKey] = useState("");
+  const [showKeyCfg, setShowKeyCfg] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [errMsg, setErrMsg] = useState("");
+  const [preview, setPreview] = useState(null);
+
+  useEffect(() => {
+    (async () => {
+      const k = await store.get("gymapp:apikey");
+      if (k) setApiKey(k);
+    })();
+  }, []);
+
+  function toggleEquip(k) {
+    setSel((prev) => {
+      const n = new Set(prev);
+      if (n.has(k)) n.delete(k); else n.add(k);
+      return n;
+    });
+  }
+
+  const available = LIBRARY.filter((e) => e.equip.every((k) => sel.has(k)));
+
+  async function generate() {
+    setErrMsg("");
+    if (!goal.trim()) { setErrMsg("Cuéntame primero qué buscas: objetivo, deporte, tiempo disponible…"); return; }
+    if (!apiKey.trim()) { setErrMsg("Configura tu clave de API de Anthropic en la sección de abajo para usar la IA."); setShowKeyCfg(true); return; }
+    if (available.length < 8) { setErrMsg("Con el equipo seleccionado hay muy pocos ejercicios disponibles. Marca más opciones."); return; }
+    setLoading(true);
+    setPreview(null);
+    await store.set("gymapp:apikey", apiKey.trim());
+    const lib = available.map((e) => ({ nombre: e.name, musculo: e.muscle, equipo: e.equip }));
+    const prompt = [
+      "Eres un entrenador experto en fuerza e hipertrofia. Diseña una rutina de gimnasio personalizada.",
+      "OBJETIVO Y CONTEXTO DEL USUARIO: " + goal.trim(),
+      "DÍAS DE ENTRENAMIENTO POR SEMANA: " + nDays,
+      "BIBLIOTECA DE EJERCICIOS PERMITIDOS (usa SOLO estos, copiando el nombre EXACTO):",
+      JSON.stringify(lib),
+      "REGLAS:",
+      "- Exactamente " + nDays + " días, con 5 a 7 ejercicios cada uno.",
+      "- Compuestos pesados primero; aislamiento y core al final.",
+      "- No repitas el mismo ejercicio dentro del mismo día.",
+      "- 'sets' es un número; 'reps' es texto corto (ej: '6-8', '12 c/lado', 'Al fallo').",
+      "- Cada ejercicio lleva un 'tip' técnico breve y útil en español.",
+      "- El 'name' de cada día debe ser corto y descriptivo (ej: 'Día A · Empuje').",
+      "Responde ÚNICAMENTE con JSON válido, sin markdown ni texto extra, con esta estructura exacta:",
+      '{"days":[{"name":"Día A","exercises":[{"name":"Sentadilla con barra","sets":4,"reps":"6-8","tip":"..."}]}]}',
+    ].join("\n");
+    try {
+      const r = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-api-key": apiKey.trim(),
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true",
+        },
+        body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 3500, messages: [{ role: "user", content: prompt }] }),
+      });
+      if (!r.ok) {
+        let detail = "";
+        try { const j = await r.json(); detail = j.error && j.error.message ? j.error.message : ""; } catch (e2) {}
+        throw new Error("error " + r.status + (detail ? ": " + detail : ""));
+      }
+      const dataR = await r.json();
+      const text = (dataR.content || []).filter((b) => b.type === "text").map((b) => b.text).join("\n");
+      const clean = text.replace(/```json|```/g, "").trim();
+      const parsed = JSON.parse(clean);
+      if (!parsed.days || !Array.isArray(parsed.days) || parsed.days.length === 0) throw new Error("la respuesta no trajo días válidos");
+      setPreview(parsed.days);
+    } catch (e) {
+      const msg = e && e.message ? e.message : "";
+      setErrMsg("No se pudo generar la rutina (" + (msg.includes("fetch") ? "revisa tu conexión y que la clave sea válida" : msg) + ").");
+    }
+    setLoading(false);
+  }
+
+  function apply() {
+    const colors = [C.blue, C.purple, C.brown, C.green, C.gold, C.red];
+    const ids = ["A", "B", "C", "D", "E", "F"];
+    const byName = {};
+    LIBRARY.forEach((e) => { byName[e.name.toLowerCase()] = e; });
+    const built = preview.map((d, i) => ({
+      id: ids[i] || String(i + 1),
+      name: d.name || "Día " + (ids[i] || i + 1),
+      color: colors[i % colors.length],
+      exercises: (d.exercises || []).map((x) => {
+        const found = byName[String(x.name || "").toLowerCase().trim()];
+        return {
+          id: uid(),
+          name: x.name || "Ejercicio",
+          sets: Number(x.sets) || 3,
+          reps: String(x.reps || "10"),
+          video: found ? found.video : "",
+          muscle: found ? found.muscle : "",
+          tip: x.tip || "",
+        };
+      }),
+    }));
+    applyDays(built);
+    setPreview(null);
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Card>
+        <h3 style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 20, textTransform: "uppercase" }}>Generar rutina con IA</h3>
+        <p className="text-sm mt-1" style={{ color: C.dim }}>Describe tu objetivo, marca el equipo que tienes y la IA arma un plan usando la biblioteca de {LIBRARY.length} ejercicios con video de técnica verificado.</p>
+      </Card>
+
+      <Card>
+        <Field label="¿Qué buscas? (objetivo, deporte, tiempo, lesiones…)">
+          <textarea
+            style={{ ...inputStyle, minHeight: 110, resize: "vertical" }}
+            value={goal}
+            onChange={(e) => setGoal(e.target.value)}
+            placeholder="Ej: practico BJJ 3 veces por semana, quiero ganar masa muscular y fuerza de agarre. Tengo 50 minutos por sesión y entreno antes de rodar."
+          />
+        </Field>
+        <div className="mt-3">
+          <Field label="Días de pesas por semana">
+            <div className="flex gap-2">
+              {[2, 3, 4, 5].map((n) => (
+                <button key={n} onClick={() => setNDays(n)} className="rounded-lg px-4 py-2 font-semibold" style={{
+                  background: nDays === n ? C.gold : "transparent",
+                  color: nDays === n ? C.ink : C.dim,
+                  border: "1px solid " + (nDays === n ? C.gold : C.line),
+                  cursor: "pointer",
+                }}>{n}</button>
+              ))}
+            </div>
+          </Field>
+        </div>
+        <div className="mt-3">
+          <Field label={"Equipo disponible · " + available.length + " ejercicios posibles"}>
+            <div className="flex flex-wrap gap-2">
+              {EQUIPMENT.map((e) => {
+                const on = sel.has(e.key);
+                return (
+                  <button key={e.key} onClick={() => toggleEquip(e.key)} className="rounded-full px-3 py-1 text-sm font-semibold" style={{
+                    background: on ? C.surface2 : "transparent",
+                    color: on ? C.text : C.dim,
+                    border: "1px solid " + (on ? C.gold : C.line),
+                    cursor: "pointer",
+                  }}>{on ? "✓ " : ""}{e.label}</button>
+                );
+              })}
+            </div>
+          </Field>
+        </div>
+        {errMsg && <p className="text-sm mt-3" style={{ color: C.red }}>{errMsg}</p>}
+        <div className="mt-4">
+          <Btn full color={C.gold} onClick={loading ? () => {} : generate} style={{ opacity: loading ? 0.6 : 1 }}>
+            {loading ? "Generando… (10-20 s)" : "✦ Generar rutina con IA"}
+          </Btn>
+        </div>
+      </Card>
+
+      {preview && (
+        <Card style={{ border: "1px solid " + C.green }}>
+          <h3 style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 20, textTransform: "uppercase", color: C.green }}>Propuesta generada</h3>
+          {preview.map((d, i) => (
+            <div key={i} className="mt-3">
+              <p className="font-semibold">{d.name || "Día " + (i + 1)}</p>
+              <div className="mt-1 flex flex-col gap-1">
+                {(d.exercises || []).map((x, j) => (
+                  <p key={j} className="text-sm" style={{ color: C.dim }}>• {x.name} — {x.sets}×{x.reps}</p>
+                ))}
+              </div>
+            </div>
+          ))}
+          <div className="mt-4 flex gap-2">
+            <Btn color={C.green} onClick={apply}>Aplicar como mi rutina</Btn>
+            <Btn ghost onClick={() => setPreview(null)}>Descartar</Btn>
+          </div>
+          <p className="text-xs mt-2" style={{ color: C.dim }}>Al aplicar se reemplaza tu rutina actual. El calentamiento, tus medidas e historial se conservan.</p>
+        </Card>
+      )}
+
+      <Card style={{ background: C.surface2 }}>
+        <button onClick={() => setShowKeyCfg(!showKeyCfg)} className="w-full flex items-center justify-between" style={{ background: "none", border: "none", cursor: "pointer", color: C.text }}>
+          <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 18, textTransform: "uppercase" }}>Configurar IA</span>
+          <span className="text-sm" style={{ color: apiKey ? C.green : C.gold }}>{apiKey ? "Clave guardada ✓ " : "Requiere clave · "}{showKeyCfg ? "−" : "+"}</span>
+        </button>
+        {showKeyCfg && (
+          <div className="mt-3 flex flex-col gap-3">
+            <Field label="Clave de API de Anthropic">
+              <input style={inputStyle} type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="sk-ant-…" />
+            </Field>
+            <p className="text-xs" style={{ color: C.dim }}>
+              La clave se guarda solo en este navegador y se usa para llamar directamente a la API de Anthropic (cada rutina cuesta centavos). Consigue la tuya en <a href="https://console.anthropic.com" target="_blank" rel="noreferrer" style={{ color: C.gold }}>console.anthropic.com</a>. No la ingreses en dispositivos ajenos.
+            </p>
+            <div>
+              <Btn small color={C.gold} onClick={async () => { await store.set("gymapp:apikey", apiKey.trim()); setErrMsg(""); setShowKeyCfg(false); }}>Guardar clave</Btn>
+            </div>
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+// ---------- Perfil con cuenta en la nube ----------
+function CloudProfileTab({ user, data, users, updateUser, importLocal, onSignOut, cloudErr }) {
+  const [editH, setEditH] = useState("");
+  const [confirmImport, setConfirmImport] = useState(null);
+  const [confirmOut, setConfirmOut] = useState(false);
+  return (
+    <div className="flex flex-col gap-4">
+      <Card style={{ border: "1px solid " + (cloudErr ? C.red : C.green) }}>
+        <div className="flex items-center gap-3">
+          {user.avatar ? (
+            <img src={user.avatar} alt="" referrerPolicy="no-referrer" className="rounded-full" style={{ width: 48, height: 48 }} />
+          ) : (
+            <div className="rounded-full flex items-center justify-center" style={{ width: 48, height: 48, background: C.surface2, border: "1px solid " + C.line, fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 20 }}>{(user.name || "?").slice(0, 1).toUpperCase()}</div>
+          )}
+          <div className="flex-1">
+            <h3 style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 22, textTransform: "uppercase", lineHeight: 1.1 }}>{user.name}</h3>
+            <p className="text-xs" style={{ color: C.dim }}>{user.email}</p>
+          </div>
+        </div>
+        <p className="text-sm mt-3" style={{ color: cloudErr ? C.red : C.green }}>
+          {cloudErr ? "Sin conexión con la nube en este momento" : "✓ Sincronizado en la nube: tu progreso te sigue en cualquier dispositivo"}
+        </p>
+        <p className="text-xs mt-1" style={{ color: C.dim }}>{data ? data.metrics.length : 0} medidas registradas</p>
+        <div className="mt-3 flex items-end gap-2">
+          <Field label={"Estatura (cm)" + (user.height ? " · actual: " + user.height : "")}>
+            <input style={inputStyle} type="number" inputMode="decimal" value={editH} onChange={(e) => setEditH(e.target.value)} placeholder={user.height ? String(user.height) : "175"} />
+          </Field>
+          <Btn color={C.gold} onClick={() => { if (editH) { updateUser({ height: Number(editH) }); setEditH(""); } }}>Guardar</Btn>
+        </div>
+      </Card>
+
+      {users && users.length > 0 && (
+        <Card>
+          <h3 className="mb-1" style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 20, textTransform: "uppercase" }}>Importar datos locales</h3>
+          <p className="text-xs mb-3" style={{ color: C.dim }}>Sube a tu cuenta los datos de un perfil local de este dispositivo. Esto reemplaza la rutina y medidas que tengas en la nube.</p>
+          <div className="flex flex-col gap-2">
+            {users.map((u) => (
+              <div key={u.id} className="flex items-center justify-between rounded-lg px-3 py-2" style={{ background: C.surface2, border: "1px solid " + C.line }}>
+                <span className="font-semibold text-sm">{u.name}</span>
+                {confirmImport === u.id ? (
+                  <Btn small color={C.red} onClick={() => { importLocal(u.id); setConfirmImport(null); }}>¿Seguro? Sí, subir</Btn>
+                ) : (
+                  <Btn small ghost color={C.gold} onClick={() => setConfirmImport(u.id)}>Subir a la nube</Btn>
+                )}
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      <Card style={{ background: C.surface2 }}>
+        {confirmOut ? (
+          <div className="flex gap-2">
+            <Btn color={C.red} onClick={onSignOut}>Sí, cerrar sesión</Btn>
+            <Btn ghost onClick={() => setConfirmOut(false)}>Cancelar</Btn>
+          </div>
+        ) : (
+          <Btn full ghost color={C.red} onClick={() => setConfirmOut(true)}>Cerrar sesión</Btn>
+        )}
+        <p className="text-xs mt-2" style={{ color: C.dim }}>Al cerrar sesión vuelves al modo local de este dispositivo. Tus datos en la nube quedan guardados.</p>
+      </Card>
+    </div>
+  );
+}
+
 // ---------- Pestaña Perfil ----------
-function ProfileTab({ users, activeUser, data, loadUser, createUser, updateUser, deleteUser }) {
+function ProfileTab({ users, activeUser, data, loadUser, createUser, updateUser, deleteUser, sbReady, onSignIn }) {
   const [name, setName] = useState("");
   const [height, setHeight] = useState("");
   const [editH, setEditH] = useState("");
@@ -831,6 +1327,12 @@ function ProfileTab({ users, activeUser, data, loadUser, createUser, updateUser,
 
   return (
     <div className="flex flex-col gap-4">
+      {sbReady && (
+        <Card style={{ border: "1px solid " + C.gold }}>
+          <p className="text-sm mb-3" style={{ color: C.dim }}>Inicia sesión para sincronizar tu rutina, medidas y progreso entre todos tus dispositivos.</p>
+          <Btn full onClick={onSignIn}>Continuar con Google</Btn>
+        </Card>
+      )}
       {activeUser && (
         <Card>
           <p className="text-xs uppercase tracking-wider mb-1" style={{ color: C.gold }}>Perfil activo</p>
