@@ -72,7 +72,7 @@ export default function RoutineTab({ data, dayIdx, setDayIdx, editMode, setEditM
                   color: doneToday[e.id] ? C.ink : C.dim, fontWeight: 700,
                 }}>✓</button>
               </div>
-              <VideoEmbed video={e.video} dayColor={day.color} />
+              <VideoEmbed video={e.video} dayColor={day.color} name={e.name} />
             </div>
           ) : (
             <div className="flex flex-col gap-3">

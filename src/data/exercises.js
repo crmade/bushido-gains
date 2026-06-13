@@ -91,6 +91,19 @@ export const LIBRARY = [
   LI('Box jump (salto al cajón)', 'Potencia de piernas', 'bbFEYR3i8JU', ['cajon']),
 ];
 
+export const INJURIES = [
+  { key: 'hombro', label: 'Hombro' },
+  { key: 'codo', label: 'Codo' },
+  { key: 'muneca', label: 'Muñeca' },
+  { key: 'lumbar', label: 'Espalda baja (lumbar)' },
+  { key: 'cervical', label: 'Cuello / cervical' },
+  { key: 'cadera', label: 'Cadera' },
+  { key: 'rodilla', label: 'Rodilla' },
+  { key: 'tobillo', label: 'Tobillo' },
+  { key: 'pecho', label: 'Pecho / costillas' },
+  { key: 'ingle', label: 'Ingle / aductores' },
+];
+
 export const EQUIPMENT = [
   { key: 'barra', label: 'Barra y discos' },
   { key: 'rack', label: 'Rack de sentadillas' },
