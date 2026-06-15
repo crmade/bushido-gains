@@ -73,13 +73,25 @@ export async function cloudSave(userId, payload) {
 
 // ---------- Data normalization ----------
 import { defaultRoutine, defaultWarmup } from '../data/exercises';
+import { BJJ_BELTS } from '../data/bjj';
 
-export function normalizeData(d) {
+export function normalizeData(d, lang = 'es') {
   const n = d && typeof d === 'object' ? d : {};
-  if (!n.routine || !n.routine.days) n.routine = defaultRoutine();
-  if (!n.routine.warmup) n.routine.warmup = defaultWarmup();
+  if (!n.routine || !n.routine.days) n.routine = defaultRoutine(lang);
+  if (!n.routine.warmup) n.routine.warmup = defaultWarmup(lang);
   if (!n.metrics) n.metrics = [];
   if (!n.done) n.done = {};
   if (!n.profile) n.profile = {};
+  if (!n.profile.units) n.profile.units = 'kg';
+  if (!n.profile.lang) n.profile.lang = lang;
+  if (!Array.isArray(n.journal)) n.journal = [];
+  if (!n.sessions || typeof n.sessions !== 'object' || Array.isArray(n.sessions)) n.sessions = {};
+  if (n.routine && Array.isArray(n.routine.days)) {
+    n.routine.days = n.routine.days.map((day, i) => {
+      const belt = BJJ_BELTS[i % BJJ_BELTS.length];
+      const { beltName, ...rest } = day;
+      return { ...rest, color: belt.color, stripeColor: belt.stripeColor };
+    });
+  }
   return n;
 }

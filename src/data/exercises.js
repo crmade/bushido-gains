@@ -1,118 +1,234 @@
 import { uid } from '../lib/utils';
-import { C } from '../lib/theme';
+import { BJJ_BELTS } from './bjj';
 
-const ex = (name, sets, reps, video, muscle, tip) => ({ id: uid(), name, sets, reps, video, muscle, tip });
-
-export function defaultWarmup() {
-  const wu = (name, detail) => ({ id: uid(), name, detail });
-  return [
-    wu('Cardio suave', '3-4 min de bici o saltos de tijera, hasta sudar ligero'),
-    wu('Círculos articulares', 'Cuello, hombros, muñecas, cadera y tobillos · 8-10 por articulación'),
-    wu('Dislocaciones de hombro', '10-12 reps con palo o banda, agarre amplio'),
-    wu('Gato-vaca + rotación torácica', '8 reps + 8 por lado'),
-    wu('Balanceos de pierna', '10 por pierna, al frente y lateral'),
-    wu('Sentadilla profunda sostenida', '30 segundos abajo, abriendo rodillas con los codos'),
-    wu('Activación de escápulas', '15-20 face pulls ligeros en polea'),
-    wu('Series de aproximación', 'Primer básico del día: barra vacía ×10 → 50% ×6 → 70% ×3'),
-  ];
+// Helpers to get lang-resolved values from multi-lang or plain string entries.
+export function pickLang(value, lang) {
+  if (value == null) return '';
+  if (typeof value === 'string') return value;
+  return value[lang] || value.es || '';
 }
 
-export function defaultRoutine() {
+// ---------- Warmup ----------
+const WARMUP_KEYS = ['cardio', 'circles', 'shoulders', 'cat', 'legs', 'squat', 'scapula', 'approach'];
+
+const WARMUP_CONTENT = {
+  es: {
+    cardio: { name: 'Cardio suave', detail: '3-4 min de bici o saltos de tijera, hasta sudar ligero' },
+    circles: { name: 'Círculos articulares', detail: 'Cuello, hombros, muñecas, cadera y tobillos · 8-10 por articulación' },
+    shoulders: { name: 'Dislocaciones de hombro', detail: '10-12 reps con palo o banda, agarre amplio' },
+    cat: { name: 'Gato-vaca + rotación torácica', detail: '8 reps + 8 por lado' },
+    legs: { name: 'Balanceos de pierna', detail: '10 por pierna, al frente y lateral' },
+    squat: { name: 'Sentadilla profunda sostenida', detail: '30 segundos abajo, abriendo rodillas con los codos' },
+    scapula: { name: 'Activación de escápulas', detail: '15-20 face pulls ligeros en polea' },
+    approach: { name: 'Series de aproximación', detail: 'Primer básico del día: barra vacía ×10 → 50% ×6 → 70% ×3' },
+  },
+  en: {
+    cardio: { name: 'Light cardio', detail: '3-4 min of bike or jumping jacks, until lightly sweaty' },
+    circles: { name: 'Joint circles', detail: 'Neck, shoulders, wrists, hips and ankles · 8-10 per joint' },
+    shoulders: { name: 'Shoulder dislocations', detail: '10-12 reps with stick or band, wide grip' },
+    cat: { name: 'Cat-cow + thoracic rotation', detail: '8 reps + 8 per side' },
+    legs: { name: 'Leg swings', detail: '10 per leg, front and side' },
+    squat: { name: 'Deep squat hold', detail: '30 seconds at the bottom, opening knees with elbows' },
+    scapula: { name: 'Scapular activation', detail: '15-20 light cable face pulls' },
+    approach: { name: 'Approach sets', detail: "First main lift of the day: empty bar ×10 → 50% ×6 → 70% ×3" },
+  },
+};
+
+export function defaultWarmup(lang = 'es') {
+  const L = WARMUP_CONTENT[lang] || WARMUP_CONTENT.es;
+  return WARMUP_KEYS.map((key) => ({ id: 'warmup-' + key, name: L[key].name, detail: L[key].detail }));
+}
+
+// ---------- Library + default routine helpers ----------
+const ex = (name, sets, reps, video, muscle, tip) => ({ id: uid(), name, sets, reps, video, muscle, tip });
+
+const MUSCLES = {
+  legs: { es: 'Piernas', en: 'Legs' },
+  chest: { es: 'Pecho', en: 'Chest' },
+  back: { es: 'Espalda', en: 'Back' },
+  shoulders: { es: 'Hombros', en: 'Shoulders' },
+  biceps: { es: 'Bíceps', en: 'Biceps' },
+  core: { es: 'Core', en: 'Core' },
+  posterior: { es: 'Cadena posterior', en: 'Posterior chain' },
+  upperChest: { es: 'Pecho superior', en: 'Upper chest' },
+  rearDelt: { es: 'Hombro posterior', en: 'Rear deltoid' },
+  antiRotation: { es: 'Core antirrotación', en: 'Anti-rotation core' },
+  glutes: { es: 'Glúteos', en: 'Glutes' },
+  triceps: { es: 'Tríceps', en: 'Triceps' },
+  grip: { es: 'Agarre y core', en: 'Grip and core' },
+  bicepsForearm: { es: 'Bíceps y antebrazo', en: 'Biceps and forearm' },
+  legPower: { es: 'Potencia de piernas', en: 'Leg power' },
+};
+
+const m = (key, lang) => MUSCLES[key][lang] || MUSCLES[key].es;
+
+// LIBRARY: each entry has multi-lang name + muscle.
+const LI = (name, muscleKey, video, equip) => ({ name, muscleKey, video, equip });
+
+const LIBRARY_RAW = [
+  LI({ es: 'Sentadilla con barra', en: 'Barbell back squat' }, 'legs', 'OySgsMhs2pk', ['barra', 'rack']),
+  LI({ es: 'Press de banca con barra', en: 'Barbell bench press' }, 'chest', 'fqsTgdTPRQU', ['barra', 'banco', 'rack']),
+  LI({ es: 'Remo con barra', en: 'Barbell row' }, 'back', '5Gg2OPlCkuE', ['barra']),
+  LI({ es: 'Press de hombro con mancuernas', en: 'Dumbbell shoulder press' }, 'shoulders', 'o5M9RZ-vWrc', ['mancuernas']),
+  LI({ es: 'Curl de bíceps en polea', en: 'Cable biceps curl' }, 'biceps', 'vpIQHsHU82Q', ['polea']),
+  LI({ es: 'Elevaciones de piernas colgado', en: 'Hanging leg raises' }, 'core', 'yJW8Gsovjfo', ['dominadas']),
+  LI({ es: 'Peso muerto convencional', en: 'Conventional deadlift' }, 'posterior', 'kancsOn7CJY', ['barra']),
+  LI({ es: 'Dominadas', en: 'Pull-ups' }, 'back', '8mhDd9Ahl1M', ['dominadas']),
+  LI({ es: 'Press inclinado con mancuernas', en: 'Incline dumbbell press' }, 'upperChest', '9fy0A5xWsgk', ['mancuernas', 'banco']),
+  LI({ es: 'Sentadilla búlgara', en: 'Bulgarian split squat' }, 'legs', 'IdilLr9nyuQ', ['banco']),
+  LI({ es: 'Face pull con cuerda', en: 'Cable face pull' }, 'rearDelt', 'Q18p2QtQAes', ['polea']),
+  LI({ es: 'Pallof press en polea', en: 'Cable Pallof press' }, 'antiRotation', '4l848GyVWUM', ['polea']),
+  LI({ es: 'Sentadilla goblet con kettlebell', en: 'Kettlebell goblet squat' }, 'legs', 'EfQERnX-qGo', ['kettlebell']),
+  LI({ es: 'Press militar con barra', en: 'Standing barbell press' }, 'shoulders', 'xM2FGQuhZAY', ['barra', 'rack']),
+  LI({ es: 'Remo sentado en polea', en: 'Seated cable row' }, 'back', 'JtTusrYzAos', ['polea']),
+  LI({ es: 'Hip thrust con barra', en: 'Barbell hip thrust' }, 'glutes', 'b1nsBZm9sU8', ['barra', 'banco']),
+  LI({ es: 'Extensión de tríceps con cuerda', en: 'Cable triceps extension' }, 'triceps', 'YGrQysn3wAs', ['polea']),
+  LI({ es: 'Farmer carry con kettlebells', en: 'Kettlebell farmer carry' }, 'grip', 'oojPmgON094', ['kettlebell']),
+  LI({ es: 'Flexiones de pecho', en: 'Push-ups' }, 'chest', 'VsiEATZdNQw', ['corporal']),
+  LI({ es: 'Kettlebell swing ruso', en: 'Russian kettlebell swing' }, 'posterior', 'chFTOa8Zicc', ['kettlebell']),
+  LI({ es: 'Remo con mancuerna a una mano', en: 'One-arm dumbbell row' }, 'back', 'fZYGcNtMWSc', ['mancuernas', 'banco']),
+  LI({ es: 'Zancadas', en: 'Lunges' }, 'legs', 'gItknnU0qkM', ['corporal']),
+  LI({ es: 'Press de banca con mancuernas', en: 'Dumbbell bench press' }, 'chest', 'MeyuOEimrC0', ['mancuernas', 'banco']),
+  LI({ es: 'Curl de bíceps con mancuernas', en: 'Dumbbell biceps curl' }, 'biceps', '8BsqlTaRg6Q', ['mancuernas']),
+  LI({ es: 'Curl martillo con mancuernas', en: 'Dumbbell hammer curl' }, 'bicepsForearm', 'mPvlpDWIoDA', ['mancuernas']),
+  LI({ es: 'Plancha abdominal', en: 'Plank' }, 'core', 'O4bNV8W4CkU', ['corporal']),
+  LI({ es: 'Remo invertido en TRX', en: 'TRX inverted row' }, 'back', '9_iEY6nT8TM', ['trx']),
+  LI({ es: 'Box jump (salto al cajón)', en: 'Box jump' }, 'legPower', 'bbFEYR3i8JU', ['cajon']),
+];
+
+// Library exposed with resolved muscle lookup.
+export const LIBRARY = LIBRARY_RAW.map((li) => ({
+  name: li.name,
+  muscle: MUSCLES[li.muscleKey],
+  video: li.video,
+  equip: li.equip,
+}));
+
+export function libraryFor(lang) {
+  return LIBRARY.map((e) => ({
+    name: pickLang(e.name, lang),
+    muscle: pickLang(e.muscle, lang),
+    video: e.video,
+    equip: e.equip,
+  }));
+}
+
+// ---------- Default routine ----------
+const ROUTINE_CONTENT = {
+  es: {
+    dayName: (id) => 'Día ' + id,
+    A: [
+      { libName: 'Sentadilla con barra', sets: 4, reps: '6-8', tip: 'Baja profundo y que las rodillas sigan la punta de los pies.' },
+      { libName: 'Press de banca con barra', sets: 4, reps: '6-8', tip: 'Escápulas retraídas y pies firmes en el piso.' },
+      { libName: 'Remo con barra', sets: 4, reps: '8-10', tip: 'Torso inclinado estable, jala hacia el ombligo.' },
+      { libName: 'Press de hombro con mancuernas', sets: 3, reps: '10-12', tip: 'Core apretado, no arquees la zona lumbar.' },
+      { libName: 'Curl de bíceps en polea', sets: 3, reps: '12', tip: 'Codos pegados al cuerpo, baja controlado.' },
+      { libName: 'Elevaciones de piernas colgado', sets: 3, reps: '10-15', tip: 'Sin balanceo: sube con el abdomen, no con impulso.' },
+    ],
+    B: [
+      { libName: 'Peso muerto convencional', sets: 4, reps: '5-6', tip: 'Espalda neutra y barra pegada a las piernas.' },
+      { libName: 'Dominadas', sets: 4, reps: 'Al fallo', tip: 'Si no sacas 6+, usa jalón en polea o banda asistida.' },
+      { libName: 'Press inclinado con mancuernas', sets: 3, reps: '8-10', tip: 'Banco a 30-45°, baja hasta sentir estiramiento.' },
+      { libName: 'Sentadilla búlgara', sets: 3, reps: '10 c/pierna', tip: 'Pie trasero en banco o cajón, torso ligeramente adelante.' },
+      { libName: 'Face pull con cuerda', sets: 3, reps: '15', tip: 'Jala hacia la cara abriendo los codos. Salud de hombro.' },
+      { libName: 'Pallof press en polea', sets: 3, reps: '12 c/lado', tip: 'Resiste el giro del torso. Oro para el BJJ.' },
+    ],
+    C: [
+      { libName: 'Sentadilla goblet con kettlebell', sets: 4, reps: '8-10', tip: 'Pesa pegada al pecho, torso erguido.' },
+      { libName: 'Press militar con barra', sets: 4, reps: '6-8', tip: 'Glúteos y abdomen firmes, empuja la cabeza al frente al final.' },
+      { libName: 'Remo sentado en polea', sets: 3, reps: '10-12', tip: 'Pecho arriba, lleva los codos atrás sin encoger hombros.' },
+      { libName: 'Hip thrust con barra', sets: 3, reps: '10-12', tip: 'Espalda alta en el banco, aprieta arriba 1 segundo.' },
+      { libName: 'Extensión de tríceps con cuerda', sets: 3, reps: '12-15', tip: 'Codos fijos, abre la cuerda al extender.' },
+      { libName: 'Farmer carry con kettlebells', sets: 3, reps: '30-40 m', tip: 'Camina erguido con paso corto. Agarre = grips de BJJ.' },
+    ],
+  },
+  en: {
+    dayName: (id) => 'Day ' + id,
+    A: [
+      { libName: 'Barbell back squat', sets: 4, reps: '6-8', tip: 'Go deep and keep your knees tracking over your toes.' },
+      { libName: 'Barbell bench press', sets: 4, reps: '6-8', tip: 'Retract scapulae and plant feet firmly on the floor.' },
+      { libName: 'Barbell row', sets: 4, reps: '8-10', tip: 'Stable hinged torso, pull toward the navel.' },
+      { libName: 'Dumbbell shoulder press', sets: 3, reps: '10-12', tip: 'Core tight, do not arch the lower back.' },
+      { libName: 'Cable biceps curl', sets: 3, reps: '12', tip: 'Elbows pinned to your sides, lower under control.' },
+      { libName: 'Hanging leg raises', sets: 3, reps: '10-15', tip: 'No swinging: lift with the abs, not momentum.' },
+    ],
+    B: [
+      { libName: 'Conventional deadlift', sets: 4, reps: '5-6', tip: 'Neutral spine and bar against the legs.' },
+      { libName: 'Pull-ups', sets: 4, reps: 'To failure', tip: 'If under 6, use cable pulldown or banded assistance.' },
+      { libName: 'Incline dumbbell press', sets: 3, reps: '8-10', tip: 'Bench at 30-45°, lower until you feel the stretch.' },
+      { libName: 'Bulgarian split squat', sets: 3, reps: '10 per leg', tip: 'Rear foot on bench or box, torso slightly forward.' },
+      { libName: 'Cable face pull', sets: 3, reps: '15', tip: 'Pull to your face flaring your elbows. Shoulder health.' },
+      { libName: 'Cable Pallof press', sets: 3, reps: '12 per side', tip: 'Resist torso rotation. Gold for BJJ.' },
+    ],
+    C: [
+      { libName: 'Kettlebell goblet squat', sets: 4, reps: '8-10', tip: 'Bell against the chest, torso upright.' },
+      { libName: 'Standing barbell press', sets: 4, reps: '6-8', tip: 'Glutes and abs braced, push head through at the top.' },
+      { libName: 'Seated cable row', sets: 3, reps: '10-12', tip: 'Chest up, drive elbows back without shrugging.' },
+      { libName: 'Barbell hip thrust', sets: 3, reps: '10-12', tip: 'Upper back on bench, squeeze the top for 1 second.' },
+      { libName: 'Cable triceps extension', sets: 3, reps: '12-15', tip: 'Lock elbows, fan rope outward at full extension.' },
+      { libName: 'Kettlebell farmer carry', sets: 3, reps: '30-40 m', tip: 'Walk tall with short steps. Grip = BJJ grips.' },
+    ],
+  },
+};
+
+export function defaultRoutine(lang = 'es') {
+  const L = ROUTINE_CONTENT[lang] || ROUTINE_CONTENT.es;
+  const buildDay = (id, beltIdx, entries) => {
+    const belt = BJJ_BELTS[beltIdx];
+    return {
+      id,
+      name: L.dayName(id),
+      color: belt.color,
+      stripeColor: belt.stripeColor,
+      exercises: entries.map((e) => {
+        const lib = LIBRARY.find((l) => l.name.es === e.libName) || LIBRARY.find((l) => l.name.en === e.libName);
+        return ex(e.libName, e.sets, e.reps, lib?.video || '', pickLang(lib?.muscle, lang), e.tip);
+      }),
+    };
+  };
   return {
-    warmup: defaultWarmup(),
+    warmup: defaultWarmup(lang),
     days: [
-      {
-        id: 'A', name: 'Día A', color: C.blue,
-        exercises: [
-          ex('Sentadilla con barra', 4, '6-8', 'OySgsMhs2pk', 'Piernas', 'Baja profundo y que las rodillas sigan la punta de los pies.'),
-          ex('Press de banca con barra', 4, '6-8', 'fqsTgdTPRQU', 'Pecho', 'Escápulas retraídas y pies firmes en el piso.'),
-          ex('Remo con barra', 4, '8-10', '5Gg2OPlCkuE', 'Espalda', 'Torso inclinado estable, jala hacia el ombligo.'),
-          ex('Press de hombro con mancuernas', 3, '10-12', 'o5M9RZ-vWrc', 'Hombros', 'Core apretado, no arquees la zona lumbar.'),
-          ex('Curl de bíceps en polea', 3, '12', 'vpIQHsHU82Q', 'Bíceps', 'Codos pegados al cuerpo, baja controlado.'),
-          ex('Elevaciones de piernas colgado', 3, '10-15', 'yJW8Gsovjfo', 'Core', 'Sin balanceo: sube con el abdomen, no con impulso.'),
-        ],
-      },
-      {
-        id: 'B', name: 'Día B', color: C.purple,
-        exercises: [
-          ex('Peso muerto convencional', 4, '5-6', 'kancsOn7CJY', 'Cadena posterior', 'Espalda neutra y barra pegada a las piernas.'),
-          ex('Dominadas', 4, 'Al fallo', '8mhDd9Ahl1M', 'Espalda', 'Si no sacas 6+, usa jalón en polea o banda asistida.'),
-          ex('Press inclinado con mancuernas', 3, '8-10', '9fy0A5xWsgk', 'Pecho superior', 'Banco a 30-45°, baja hasta sentir estiramiento.'),
-          ex('Sentadilla búlgara', 3, '10 c/pierna', 'IdilLr9nyuQ', 'Piernas', 'Pie trasero en banco o cajón, torso ligeramente adelante.'),
-          ex('Face pull con cuerda', 3, '15', 'Q18p2QtQAes', 'Hombro posterior', 'Jala hacia la cara abriendo los codos. Salud de hombro.'),
-          ex('Pallof press en polea', 3, '12 c/lado', '4l848GyVWUM', 'Core antirrotación', 'Resiste el giro del torso. Oro para el BJJ.'),
-        ],
-      },
-      {
-        id: 'C', name: 'Día C', color: C.brown,
-        exercises: [
-          ex('Sentadilla goblet con kettlebell', 4, '8-10', 'EfQERnX-qGo', 'Piernas', 'Pesa pegada al pecho, torso erguido.'),
-          ex('Press militar con barra', 4, '6-8', 'xM2FGQuhZAY', 'Hombros', 'Glúteos y abdomen firmes, empuja la cabeza al frente al final.'),
-          ex('Remo sentado en polea', 3, '10-12', 'JtTusrYzAos', 'Espalda', 'Pecho arriba, lleva los codos atrás sin encoger hombros.'),
-          ex('Hip thrust con barra', 3, '10-12', 'b1nsBZm9sU8', 'Glúteos', 'Espalda alta en el banco, aprieta arriba 1 segundo.'),
-          ex('Extensión de tríceps con cuerda', 3, '12-15', 'YGrQysn3wAs', 'Tríceps', 'Codos fijos, abre la cuerda al extender.'),
-          ex('Farmer carry con kettlebells', 3, '30-40 m', 'oojPmgON094', 'Agarre y core', 'Camina erguido con paso corto. Agarre = grips de BJJ.'),
-        ],
-      },
+      buildDay('A', 0, L.A),
+      buildDay('B', 1, L.B),
+      buildDay('C', 2, L.C),
     ],
   };
 }
 
-const LI = (name, muscle, video, equip) => ({ name, muscle, video, equip });
-
-export const LIBRARY = [
-  LI('Sentadilla con barra', 'Piernas', 'OySgsMhs2pk', ['barra', 'rack']),
-  LI('Press de banca con barra', 'Pecho', 'fqsTgdTPRQU', ['barra', 'banco', 'rack']),
-  LI('Remo con barra', 'Espalda', '5Gg2OPlCkuE', ['barra']),
-  LI('Press de hombro con mancuernas', 'Hombros', 'o5M9RZ-vWrc', ['mancuernas']),
-  LI('Curl de bíceps en polea', 'Bíceps', 'vpIQHsHU82Q', ['polea']),
-  LI('Elevaciones de piernas colgado', 'Core', 'yJW8Gsovjfo', ['dominadas']),
-  LI('Peso muerto convencional', 'Cadena posterior', 'kancsOn7CJY', ['barra']),
-  LI('Dominadas', 'Espalda', '8mhDd9Ahl1M', ['dominadas']),
-  LI('Press inclinado con mancuernas', 'Pecho superior', '9fy0A5xWsgk', ['mancuernas', 'banco']),
-  LI('Sentadilla búlgara', 'Piernas', 'IdilLr9nyuQ', ['banco']),
-  LI('Face pull con cuerda', 'Hombro posterior', 'Q18p2QtQAes', ['polea']),
-  LI('Pallof press en polea', 'Core antirrotación', '4l848GyVWUM', ['polea']),
-  LI('Sentadilla goblet con kettlebell', 'Piernas', 'EfQERnX-qGo', ['kettlebell']),
-  LI('Press militar con barra', 'Hombros', 'xM2FGQuhZAY', ['barra', 'rack']),
-  LI('Remo sentado en polea', 'Espalda', 'JtTusrYzAos', ['polea']),
-  LI('Hip thrust con barra', 'Glúteos', 'b1nsBZm9sU8', ['barra', 'banco']),
-  LI('Extensión de tríceps con cuerda', 'Tríceps', 'YGrQysn3wAs', ['polea']),
-  LI('Farmer carry con kettlebells', 'Agarre y core', 'oojPmgON094', ['kettlebell']),
-  LI('Flexiones de pecho', 'Pecho', 'VsiEATZdNQw', ['corporal']),
-  LI('Kettlebell swing ruso', 'Cadena posterior', 'chFTOa8Zicc', ['kettlebell']),
-  LI('Remo con mancuerna a una mano', 'Espalda', 'fZYGcNtMWSc', ['mancuernas', 'banco']),
-  LI('Zancadas', 'Piernas', 'gItknnU0qkM', ['corporal']),
-  LI('Press de banca con mancuernas', 'Pecho', 'MeyuOEimrC0', ['mancuernas', 'banco']),
-  LI('Curl de bíceps con mancuernas', 'Bíceps', '8BsqlTaRg6Q', ['mancuernas']),
-  LI('Curl martillo con mancuernas', 'Bíceps y antebrazo', 'mPvlpDWIoDA', ['mancuernas']),
-  LI('Plancha abdominal', 'Core', 'O4bNV8W4CkU', ['corporal']),
-  LI('Remo invertido en TRX', 'Espalda', '9_iEY6nT8TM', ['trx']),
-  LI('Box jump (salto al cajón)', 'Potencia de piernas', 'bbFEYR3i8JU', ['cajon']),
+// ---------- Equipment and injuries ----------
+export const EQUIPMENT = [
+  { key: 'barra', label: { es: 'Barra y discos', en: 'Barbell and plates' } },
+  { key: 'rack', label: { es: 'Rack de sentadillas', en: 'Squat rack' } },
+  { key: 'mancuernas', label: { es: 'Mancuernas', en: 'Dumbbells' } },
+  { key: 'kettlebell', label: { es: 'Kettlebells', en: 'Kettlebells' } },
+  { key: 'polea', label: { es: 'Polea / cables', en: 'Cables / pulley' } },
+  { key: 'banco', label: { es: 'Banco', en: 'Bench' } },
+  { key: 'dominadas', label: { es: 'Barra de dominadas', en: 'Pull-up bar' } },
+  { key: 'trx', label: { es: 'TRX / suspensión', en: 'TRX / suspension' } },
+  { key: 'cajon', label: { es: 'Cajón pliométrico', en: 'Plyo box' } },
+  { key: 'corporal', label: { es: 'Peso corporal', en: 'Bodyweight' } },
 ];
 
 export const INJURIES = [
-  { key: 'hombro', label: 'Hombro' },
-  { key: 'codo', label: 'Codo' },
-  { key: 'muneca', label: 'Muñeca' },
-  { key: 'lumbar', label: 'Espalda baja (lumbar)' },
-  { key: 'cervical', label: 'Cuello / cervical' },
-  { key: 'cadera', label: 'Cadera' },
-  { key: 'rodilla', label: 'Rodilla' },
-  { key: 'tobillo', label: 'Tobillo' },
-  { key: 'pecho', label: 'Pecho / costillas' },
-  { key: 'ingle', label: 'Ingle / aductores' },
+  { key: 'hombro', label: { es: 'Hombro', en: 'Shoulder' } },
+  { key: 'codo', label: { es: 'Codo', en: 'Elbow' } },
+  { key: 'muneca', label: { es: 'Muñeca', en: 'Wrist' } },
+  { key: 'lumbar', label: { es: 'Espalda baja (lumbar)', en: 'Lower back (lumbar)' } },
+  { key: 'cervical', label: { es: 'Cuello / cervical', en: 'Neck / cervical' } },
+  { key: 'cadera', label: { es: 'Cadera', en: 'Hip' } },
+  { key: 'rodilla', label: { es: 'Rodilla', en: 'Knee' } },
+  { key: 'tobillo', label: { es: 'Tobillo', en: 'Ankle' } },
+  { key: 'pecho', label: { es: 'Pecho / costillas', en: 'Chest / ribs' } },
+  { key: 'ingle', label: { es: 'Ingle / aductores', en: 'Groin / adductors' } },
 ];
 
-export const EQUIPMENT = [
-  { key: 'barra', label: 'Barra y discos' },
-  { key: 'rack', label: 'Rack de sentadillas' },
-  { key: 'mancuernas', label: 'Mancuernas' },
-  { key: 'kettlebell', label: 'Kettlebells' },
-  { key: 'polea', label: 'Polea / cables' },
-  { key: 'banco', label: 'Banco' },
-  { key: 'dominadas', label: 'Barra de dominadas' },
-  { key: 'trx', label: 'TRX / suspensión' },
-  { key: 'cajon', label: 'Cajón pliométrico' },
-  { key: 'corporal', label: 'Peso corporal' },
-];
+export function equipmentLabel(key, lang = 'es') {
+  const e = EQUIPMENT.find((x) => x.key === key);
+  return e ? pickLang(e.label, lang) : key;
+}
+
+export function injuryLabel(key, lang = 'es') {
+  const i = INJURIES.find((x) => x.key === key);
+  return i ? pickLang(i.label, lang) : key;
+}

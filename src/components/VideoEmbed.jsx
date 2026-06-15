@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import { C } from '../lib/theme';
 import { ytId } from '../lib/utils';
+import { useLang } from '../lib/i18n.jsx';
 
 export default function VideoEmbed({ video, dayColor, name }) {
+  const { t } = useLang();
   const [open, setOpen] = useState(false);
   const id = ytId(video);
 
   const searchUrl =
     'https://www.youtube.com/results?search_query=' +
-    encodeURIComponent((name || 'técnica') + ' técnica shorts');
+    encodeURIComponent((name || 'technique') + ' shorts');
 
   const SearchLink = () => (
     <a
@@ -18,16 +20,14 @@ export default function VideoEmbed({ video, dayColor, name }) {
       className="text-xs hover:underline"
       style={{ color: C.dim }}
     >
-      🔍 Buscar shorts en YouTube
+      {t('video.search')}
     </a>
   );
 
   if (!id) {
     return (
       <div className="mt-2 flex flex-col gap-1">
-        <p className="text-sm" style={{ color: C.dim }}>
-          Sin video. Activa el modo edición y pega un link de YouTube, o busca uno aquí:
-        </p>
+        <p className="text-sm" style={{ color: C.dim }}>{t('video.noVideo')}</p>
         <SearchLink />
       </div>
     );
@@ -41,7 +41,7 @@ export default function VideoEmbed({ video, dayColor, name }) {
           className="w-full rounded-lg py-2 text-sm font-semibold flex items-center justify-center gap-2 transition-opacity hover:opacity-85"
           style={{ background: C.surface2, border: '1px solid ' + C.line, color: dayColor }}
         >
-          <span style={{ fontSize: 11 }}>▶</span> Ver técnica
+          <span style={{ fontSize: 11 }}>▶</span> {t('video.watch')}
         </button>
         <SearchLink />
       </div>
@@ -54,7 +54,7 @@ export default function VideoEmbed({ video, dayColor, name }) {
         <iframe
           width="100%" height="100%"
           src={'https://www.youtube.com/embed/' + id + '?rel=0'}
-          title="Video de técnica"
+          title={t('video.watch')}
           frameBorder="0"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
@@ -67,7 +67,7 @@ export default function VideoEmbed({ video, dayColor, name }) {
           className="text-xs"
           style={{ color: C.dim, background: 'none', border: 'none', cursor: 'pointer' }}
         >
-          Ocultar video
+          {t('video.hide')}
         </button>
         <SearchLink />
       </div>

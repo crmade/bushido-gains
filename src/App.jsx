@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { C, FONT_DISPLAY, FONT_BODY } from './lib/theme';
+import { C, FONT_DISPLAY } from './lib/theme';
 import { uid, todayStr } from './lib/utils';
 import { sb, hasStorage, store, cloudLoad, cloudSave, normalizeData } from './lib/supabase';
 import { defaultRoutine, defaultWarmup } from './data/exercises';
+import { useLang } from './lib/i18n.jsx';
 import Shell from './components/Shell';
 import Onboard from './components/Onboard';
 import RoutineTab from './components/RoutineTab';
@@ -10,8 +11,10 @@ import GeneratorTab from './components/GeneratorTab';
 import ProgressTab from './components/ProgressTab';
 import ProfileTab from './components/ProfileTab';
 import CloudProfileTab from './components/CloudProfileTab';
+import JournalTab from './components/JournalTab';
 
 export default function App() {
+  const { t, lang, setLang } = useLang();
   const [phase, setPhase] = useState('loading');
   const [users, setUsers] = useState([]);
   const [activeId, setActiveId] = useState(null);
@@ -59,8 +62,9 @@ export default function App() {
     } catch (e) {
       setCloudErr(true);
     }
-    if (!d) d = (await store.get('gymapp:cloudcache:' + sess.user.id)) || { metrics: [], routine: defaultRoutine(), done: {}, profile: {} };
-    d = normalizeData(d);
+    if (!d) d = (await store.get('gymapp:cloudcache:' + sess.user.id)) || {};
+    d = normalizeData(d, lang);
+    if (d.profile?.lang && d.profile.lang !== lang) setLang(d.profile.lang);
     setActiveId('cloud:' + sess.user.id);
     setData(d);
     setPhase('ready');
@@ -81,16 +85,13 @@ export default function App() {
 
   async function importLocalToCloud(localId) {
     const d = await store.get('gymapp:data:' + localId);
-    if (d) await persistData(normalizeData(d));
+    if (d) await persistData(normalizeData(d, lang));
   }
 
   async function loadUser(id, list) {
-    let d = await store.get('gymapp:data:' + id);
-    if (!d) d = { metrics: [], routine: defaultRoutine(), done: {} };
-    if (!d.routine || !d.routine.days) d.routine = defaultRoutine();
-    if (!d.routine.warmup) { d.routine.warmup = defaultWarmup(); await store.set('gymapp:data:' + id, d); }
-    if (!d.metrics) d.metrics = [];
-    if (!d.done) d.done = {};
+    const raw = await store.get('gymapp:data:' + id);
+    const d = normalizeData(raw, lang);
+    if (d.profile?.lang && d.profile.lang !== lang) setLang(d.profile.lang);
     setActiveId(id);
     setData(d);
     setPhase('ready');
@@ -113,7 +114,7 @@ export default function App() {
     const user = { id: uid(), name: name.trim(), height: height ? Number(height) : null, createdAt: todayStr() };
     const list = [...users, user];
     setUsers(list);
-    const d = { metrics: [], routine: defaultRoutine(), done: {} };
+    const d = normalizeData({}, lang);
     if (weight) {
       d.metrics.push({ id: uid(), date: todayStr(), weight: Number(weight), fat: null, muscle: null });
     }
@@ -130,9 +131,17 @@ export default function App() {
       await persistData({ ...data, profile: { ...(data.profile || {}), ...patch } });
       return;
     }
-    const list = users.map((u) => (u.id === activeId ? { ...u, ...patch } : u));
-    setUsers(list);
-    await store.set('gymapp:users', { list, activeId });
+    if (patch.lang || patch.units) {
+      await persistData({ ...data, profile: { ...(data.profile || {}), ...patch } });
+    }
+    const userPatch = { ...patch };
+    delete userPatch.lang;
+    delete userPatch.units;
+    if (Object.keys(userPatch).length) {
+      const list = users.map((u) => (u.id === activeId ? { ...u, ...userPatch } : u));
+      setUsers(list);
+      await store.set('gymapp:users', { list, activeId });
+    }
   }
 
   async function deleteUser(id) {
@@ -153,7 +162,7 @@ export default function App() {
 
   const meta = session && session.user.user_metadata ? session.user.user_metadata : {};
   const activeUser = session
-    ? { id: 'cloud', name: meta.full_name || meta.name || session.user.email || 'Mi cuenta', height: data && data.profile ? data.profile.height : null, createdAt: (session.user.created_at || '').slice(0, 10), email: session.user.email || '', avatar: meta.avatar_url || meta.picture || null }
+    ? { id: 'cloud', name: meta.full_name || meta.name || session.user.email || t('profile.active'), height: data && data.profile ? data.profile.height : null, createdAt: (session.user.created_at || '').slice(0, 10), email: session.user.email || '', avatar: meta.avatar_url || meta.picture || null }
     : (users.find((u) => u.id === activeId) || null);
 
   // ---- Mutaciones de rutina ----
@@ -162,7 +171,7 @@ export default function App() {
     persistData(next);
   }
   function addExercise(dayId) {
-    const ne = { id: uid(), name: 'Nuevo ejercicio', sets: 3, reps: '10', video: '', muscle: '', tip: '' };
+    const ne = { id: uid(), name: lang === 'en' ? 'New exercise' : 'Nuevo ejercicio', sets: 3, reps: '10', video: '', muscle: '', tip: '' };
     const next = { ...data, routine: { ...data.routine, days: data.routine.days.map((d) => (d.id !== dayId ? d : { ...d, exercises: [...d.exercises, ne] })) } };
     persistData(next);
   }
@@ -189,20 +198,65 @@ export default function App() {
     persistData(next);
   }
   function resetRoutine() {
-    persistData({ ...data, routine: defaultRoutine() });
+    persistData({ ...data, routine: defaultRoutine(lang) });
     setEditMode(false);
   }
   function applyGeneratedDays(days) {
-    persistData({ ...data, routine: { warmup: (data.routine && data.routine.warmup) || defaultWarmup(), days } });
+    persistData({ ...data, routine: { warmup: (data.routine && data.routine.warmup) || defaultWarmup(lang), days } });
     setDayIdx(0);
     setEditMode(false);
     setTab('rutina');
   }
   function toggleDone(exId) {
-    const t = todayStr();
-    const day = { ...(data.done[t] || {}) };
+    const tDate = todayStr();
+    const day = { ...(data.done[tDate] || {}) };
     if (day[exId]) delete day[exId]; else day[exId] = true;
-    persistData({ ...data, done: { ...data.done, [t]: day } });
+    persistData({ ...data, done: { ...data.done, [tDate]: day } });
+  }
+
+  // ---- Sesiones de entrenamiento ----
+  function setExerciseWeight(exId, weightKg) {
+    const tDate = todayStr();
+    const dayId = data.routine.days[Math.min(dayIdx, data.routine.days.length - 1)].id;
+    const sessions = { ...(data.sessions || {}) };
+    const cur = sessions[tDate] || { date: tDate, dayId, notes: '', exercises: {} };
+    sessions[tDate] = {
+      ...cur,
+      dayId,
+      exercises: { ...cur.exercises, [exId]: { ...(cur.exercises[exId] || {}), weight: weightKg } },
+    };
+    persistData({ ...data, sessions });
+  }
+
+  function setSessionNotes(notes) {
+    const tDate = todayStr();
+    const dayId = data.routine.days[Math.min(dayIdx, data.routine.days.length - 1)].id;
+    const sessions = { ...(data.sessions || {}) };
+    const cur = sessions[tDate] || { date: tDate, dayId, notes: '', exercises: {} };
+    sessions[tDate] = { ...cur, dayId, notes: notes || '' };
+    persistData({ ...data, sessions });
+  }
+
+  function deleteSession(date) {
+    const sessions = { ...(data.sessions || {}) };
+    delete sessions[date];
+    persistData({ ...data, sessions });
+  }
+
+  function deleteAllSessions() {
+    persistData({ ...data, sessions: {} });
+  }
+
+  // ---- Diario BJJ ----
+  function saveNote(note) {
+    const journal = [...(data.journal || [])];
+    const idx = journal.findIndex((n) => n.id === note.id);
+    if (idx >= 0) journal[idx] = note;
+    else journal.push(note);
+    persistData({ ...data, journal });
+  }
+  function deleteNote(id) {
+    persistData({ ...data, journal: (data.journal || []).filter((n) => n.id !== id) });
   }
 
   // ---- Medidas ----
@@ -213,12 +267,23 @@ export default function App() {
   function deleteMetric(id) {
     persistData({ ...data, metrics: data.metrics.filter((m) => m.id !== id) });
   }
+  function deleteAllMetrics() {
+    persistData({ ...data, metrics: [] });
+  }
+
+  function setLangAndPersist(newLang) {
+    setLang(newLang);
+    if (data) persistData({ ...data, profile: { ...(data.profile || {}), lang: newLang } });
+  }
+  function setUnitsAndPersist(units) {
+    if (data) persistData({ ...data, profile: { ...(data.profile || {}), units } });
+  }
 
   if (phase === 'loading') {
     return (
       <Shell>
         <div className="flex items-center justify-center" style={{ minHeight: '60vh' }}>
-          <p style={{ color: C.dim }}>Cargando tu plan…</p>
+          <p style={{ color: C.dim }}>{t('app.loading')}</p>
         </div>
       </Shell>
     );
@@ -227,10 +292,12 @@ export default function App() {
   if (phase === 'onboard') {
     return (
       <Shell>
-        <Onboard onCreate={createUser} saveWarn={saveWarn} sbReady={!!sb} onSignIn={signInGoogle} />
+        <Onboard onCreate={createUser} saveWarn={saveWarn} sbReady={!!sb} onSignIn={signInGoogle} units={'kg'} />
       </Shell>
     );
   }
+
+  const units = data?.profile?.units || 'kg';
 
   return (
     <Shell>
@@ -240,7 +307,7 @@ export default function App() {
             <h1 className="leading-none" style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 34, letterSpacing: 1, textTransform: 'uppercase' }}>
               Bushido <span style={{ color: C.gold }}>Gains</span>
             </h1>
-            <p className="text-sm mt-1" style={{ color: C.dim }}>Full body 3×/semana · hipertrofia para BJJ</p>
+            <p className="text-sm mt-1" style={{ color: C.dim }}>{t('app.subtitle')}</p>
           </div>
           {activeUser && (
             <button onClick={() => setTab('perfil')} className="rounded-full px-3 py-1 text-sm font-semibold" style={{ background: C.surface2, border: '1px solid ' + C.line, color: C.text }}>
@@ -252,13 +319,13 @@ export default function App() {
 
       {saveWarn && (
         <div className="mx-4 mt-3 rounded-lg px-3 py-2 text-sm" style={{ background: 'rgba(224,96,96,0.12)', border: '1px solid ' + C.red, color: C.text }}>
-          Tu navegador tiene bloqueado el almacenamiento local: los cambios no se guardarán entre sesiones.
+          {t('app.storageBlocked')}
         </div>
       )}
 
       {cloudErr && session && (
         <div className="mx-4 mt-3 rounded-lg px-3 py-2 text-sm" style={{ background: 'rgba(224,96,96,0.12)', border: '1px solid ' + C.red, color: C.text }}>
-          No se pudo sincronizar con la nube. Tus cambios quedaron guardados en este dispositivo y se reintentará al guardar de nuevo.
+          {t('app.cloudErr')}
         </div>
       )}
 
@@ -276,33 +343,75 @@ export default function App() {
             moveExercise={moveExercise}
             resetRoutine={resetRoutine}
             toggleDone={toggleDone}
+            sessions={data.sessions || {}}
+            setExerciseWeight={setExerciseWeight}
+            setSessionNotes={setSessionNotes}
+            units={units}
           />
         )}
         {tab === 'generar' && data && (
           <GeneratorTab applyDays={applyGeneratedDays} />
         )}
         {tab === 'progreso' && data && (
-          <ProgressTab data={data} user={activeUser} addMetric={addMetric} deleteMetric={deleteMetric} updateUser={updateUser} />
+          <ProgressTab
+            data={data}
+            user={activeUser}
+            addMetric={addMetric}
+            deleteMetric={deleteMetric}
+            deleteAllMetrics={deleteAllMetrics}
+            updateUser={updateUser}
+            deleteSession={deleteSession}
+            deleteAllSessions={deleteAllSessions}
+            units={units}
+          />
+        )}
+        {tab === 'diario' && data && (
+          <JournalTab journal={data.journal || []} saveNote={saveNote} deleteNote={deleteNote} />
         )}
         {tab === 'perfil' && (
           session ? (
-            <CloudProfileTab user={activeUser} data={data} users={users} updateUser={updateUser} importLocal={importLocalToCloud} onSignOut={signOutGoogle} cloudErr={cloudErr} />
+            <CloudProfileTab
+              user={activeUser}
+              data={data}
+              users={users}
+              updateUser={updateUser}
+              importLocal={importLocalToCloud}
+              onSignOut={signOutGoogle}
+              cloudErr={cloudErr}
+              units={units}
+              setLang={setLangAndPersist}
+              setUnits={setUnitsAndPersist}
+            />
           ) : (
-            <ProfileTab users={users} activeUser={activeUser} data={data} loadUser={(id) => loadUser(id)} createUser={createUser} updateUser={updateUser} deleteUser={deleteUser} sbReady={!!sb} onSignIn={signInGoogle} />
+            <ProfileTab
+              users={users}
+              activeUser={activeUser}
+              data={data}
+              loadUser={(id) => loadUser(id)}
+              createUser={createUser}
+              updateUser={updateUser}
+              deleteUser={deleteUser}
+              sbReady={!!sb}
+              onSignIn={signInGoogle}
+              units={units}
+              setLang={setLangAndPersist}
+              setUnits={setUnitsAndPersist}
+            />
           )
         )}
       </main>
 
       <nav className="fixed bottom-0 left-0 right-0 flex" style={{ background: C.surface, borderTop: '1px solid ' + C.line }}>
         {[
-          { id: 'rutina', label: 'Rutina', icon: '▣' },
-          { id: 'generar', label: 'Generar', icon: '✦' },
-          { id: 'progreso', label: 'Progreso', icon: '↗' },
-          { id: 'perfil', label: 'Perfil', icon: '◉' },
-        ].map((t) => (
-          <button key={t.id} onClick={() => setTab(t.id)} className="flex-1 py-3 flex flex-col items-center gap-1" style={{ background: 'none', border: 'none', cursor: 'pointer', color: tab === t.id ? C.gold : C.dim }}>
-            <span style={{ fontSize: 16 }}>{t.icon}</span>
-            <span className="text-xs font-semibold uppercase tracking-wide">{t.label}</span>
+          { id: 'rutina', label: t('nav.routine'), icon: '▣' },
+          { id: 'generar', label: t('nav.generator'), icon: '✦' },
+          { id: 'progreso', label: t('nav.progress'), icon: '↗' },
+          { id: 'diario', label: t('nav.journal'), icon: '✎' },
+          { id: 'perfil', label: t('nav.profile'), icon: '◉' },
+        ].map((tt) => (
+          <button key={tt.id} onClick={() => setTab(tt.id)} className="flex-1 py-3 flex flex-col items-center gap-1" style={{ background: 'none', border: 'none', cursor: 'pointer', color: tab === tt.id ? C.gold : C.dim }}>
+            <span style={{ fontSize: 16 }}>{tt.icon}</span>
+            <span className="text-xs font-semibold uppercase tracking-wide">{tt.label}</span>
           </button>
         ))}
       </nav>

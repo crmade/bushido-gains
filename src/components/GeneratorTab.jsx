@@ -1,18 +1,32 @@
 import { useState, useEffect } from 'react';
 import { C, FONT_DISPLAY, inputStyle } from '../lib/theme';
 import { uid } from '../lib/utils';
-import { EQUIPMENT, LIBRARY, INJURIES } from '../data/exercises';
+import { EQUIPMENT, LIBRARY, INJURIES, libraryFor, equipmentLabel, injuryLabel, pickLang } from '../data/exercises';
+import { BJJ_BELTS } from '../data/bjj';
 import { store } from '../lib/supabase';
 import { PROVIDERS, callAI } from '../lib/aiProviders';
+import { useLang } from '../lib/i18n.jsx';
 import Btn from './Btn';
 import Card from './Card';
 import Field from './Field';
 
 const EMPTY_KEYS = { anthropic: '', openai: '', gemini: '', ollama: '' };
 
+function formatDuration(min, lang) {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  const hLabel = lang === 'en' ? 'h' : 'h';
+  const mLabel = lang === 'en' ? 'min' : 'min';
+  if (h === 0) return m + ' ' + mLabel;
+  if (m === 0) return h + ' ' + hLabel;
+  return h + ' ' + hLabel + ' ' + m + ' ' + mLabel;
+}
+
 export default function GeneratorTab({ applyDays }) {
+  const { t, lang } = useLang();
   const [goal, setGoal] = useState('');
   const [nDays, setNDays] = useState(3);
+  const [minutes, setMinutes] = useState(60);
   const [sel, setSel] = useState(() => new Set(EQUIPMENT.map((e) => e.key)));
   const [injuries, setInjuries] = useState(() => new Set());
   const [injuryNotes, setInjuryNotes] = useState('');
@@ -63,56 +77,95 @@ export default function GeneratorTab({ applyDays }) {
     if (!silent) { setErrMsg(''); setShowKeyCfg(false); }
   }
 
-  const available = LIBRARY.filter((e) => e.equip.every((k) => sel.has(k)));
+  const libLang = libraryFor(lang);
+  const available = libLang.filter((e) => e.equip.every((k) => sel.has(k)));
 
   async function generate() {
     setErrMsg('');
-    if (!goal.trim()) { setErrMsg('Cuéntame primero qué buscas: objetivo, deporte, tiempo disponible…'); return; }
-    if (!apiKey.trim()) { setErrMsg('Configura el acceso a ' + cfg.label + ' en la sección de abajo.'); setShowKeyCfg(true); return; }
-    if (available.length < 8) { setErrMsg('Con el equipo seleccionado hay muy pocos ejercicios disponibles. Marca más opciones.'); return; }
+    if (!goal.trim()) { setErrMsg(t('gen.errGoal')); return; }
+    if (minutes < 15) { setErrMsg(t('gen.errMin')); return; }
+    if (!apiKey.trim()) { setErrMsg(t('gen.errKey', { provider: cfg.label })); setShowKeyCfg(true); return; }
+    if (available.length < 8) { setErrMsg(t('gen.errEquip')); return; }
     setLoading(true);
     setPreview(null);
     await saveCurrentKey(true);
 
-    const lib = available.map((e) => ({ nombre: e.name, musculo: e.muscle, equipo: e.equip }));
-    const injuryLabels = [...injuries].map((k) => INJURIES.find((i) => i.key === k)?.label).filter(Boolean);
+    const lib = available.map((e) => ({ name: e.name, muscle: e.muscle, equipment: e.equip }));
+    const injuryLabels = [...injuries].map((k) => injuryLabel(k, lang));
     const hasInjuryInput = injuryLabels.length > 0 || injuryNotes.trim();
 
-    const promptLines = [
+    const isEn = lang === 'en';
+    const promptLines = isEn ? [
+      'You are an expert strength and hypertrophy coach. Design a personalized gym routine.',
+      'USER GOAL AND CONTEXT: ' + goal.trim(),
+      'TRAINING DAYS PER WEEK: ' + nDays,
+      'SESSION TIME: ' + minutes + ' minutes. Includes short warm-up, approach sets and rest.',
+      'ALLOWED EXERCISE LIBRARY (use ONLY these, copying the EXACT name):',
+      JSON.stringify(lib),
+    ] : [
       'Eres un entrenador experto en fuerza e hipertrofia. Diseña una rutina de gimnasio personalizada.',
       'OBJETIVO Y CONTEXTO DEL USUARIO: ' + goal.trim(),
       'DÍAS DE ENTRENAMIENTO POR SEMANA: ' + nDays,
+      'TIEMPO POR SESIÓN: ' + minutes + ' minutos. Incluye calentamiento corto, series de aproximación y descansos.',
       'BIBLIOTECA DE EJERCICIOS PERMITIDOS (usa SOLO estos, copiando el nombre EXACTO):',
       JSON.stringify(lib),
     ];
 
     if (hasInjuryInput) {
-      promptLines.push('LESIONES Y LIMITACIONES (evita ejercicios que carguen o agraven estas zonas):');
-      if (injuryLabels.length) promptLines.push('- ' + injuryLabels.join('\n- '));
-      if (injuryNotes.trim()) promptLines.push('Notas adicionales del usuario: ' + injuryNotes.trim());
+      if (isEn) {
+        promptLines.push('INJURIES AND LIMITATIONS (avoid exercises that load or aggravate these zones):');
+        if (injuryLabels.length) promptLines.push('- ' + injuryLabels.join('\n- '));
+        if (injuryNotes.trim()) promptLines.push('Additional notes from user: ' + injuryNotes.trim());
+      } else {
+        promptLines.push('LESIONES Y LIMITACIONES (evita ejercicios que carguen o agraven estas zonas):');
+        if (injuryLabels.length) promptLines.push('- ' + injuryLabels.join('\n- '));
+        if (injuryNotes.trim()) promptLines.push('Notas adicionales del usuario: ' + injuryNotes.trim());
+      }
     }
 
-    promptLines.push(
-      'REGLAS:',
-      '- Exactamente ' + nDays + ' día' + (nDays > 1 ? 's' : '') + ', con 5 a 7 ejercicios cada uno.',
-      '- Compuestos pesados primero; aislamiento y core al final.',
-      '- No repitas el mismo ejercicio dentro del mismo día.',
-      "- 'sets' es un número; 'reps' es texto corto (ej: '6-8', '12 c/lado', 'Al fallo').",
-      "- Cada ejercicio lleva un 'tip' técnico breve y útil en español.",
-      "- El 'name' de cada día debe ser corto y descriptivo (ej: 'Día A · Empuje').",
-    );
-
-    if (hasInjuryInput) {
+    if (isEn) {
       promptLines.push(
-        '- EVITA cualquier ejercicio que cargue directamente las zonas lesionadas indicadas arriba.',
-        "- Si una zona lesionada es inevitable de trabajar, elige la variante más segura y agrega una advertencia clara en el 'tip'.",
+        'RULES:',
+        '- Exactly ' + nDays + ' day' + (nDays > 1 ? 's' : '') + '.',
+        '- Adjust exercise and set counts so each session lasts ~' + minutes + ' minutes (≈3-4 min per compound set, ≈2 min per isolation set, rest included). Minimum 3 exercises, maximum 10 per day.',
+        '- Heavy compounds first; isolation and core at the end.',
+        '- Do not repeat the same exercise within the same day.',
+        "- 'sets' is a number; 'reps' is short text (e.g. '6-8', '12 per side', 'To failure').",
+        "- Each exercise carries a short, useful technique 'tip' in English.",
+        "- Each day's 'name' is short and descriptive (e.g. 'Day A · Push').",
+      );
+      if (hasInjuryInput) {
+        promptLines.push(
+          '- AVOID any exercise that directly loads the injured zones above.',
+          "- If working an injured zone is unavoidable, choose the safest variant and add a clear warning in the 'tip'.",
+        );
+      }
+      promptLines.push(
+        'Respond ONLY with valid JSON, no markdown or extra text, with this exact structure:',
+        '{"days":[{"name":"Day A","exercises":[{"name":"Barbell back squat","sets":4,"reps":"6-8","tip":"..."}]}]}',
+      );
+    } else {
+      promptLines.push(
+        'REGLAS:',
+        '- Exactamente ' + nDays + ' día' + (nDays > 1 ? 's' : '') + '.',
+        '- Ajusta el número de ejercicios y series por día para que la sesión completa dure aproximadamente ' + minutes + ' minutos (~3-4 min por compuesto pesado, ~2 min por aislamiento, descansos incluidos). Mínimo 3 ejercicios, máximo 10 por día.',
+        '- Compuestos pesados primero; aislamiento y core al final.',
+        '- No repitas el mismo ejercicio dentro del mismo día.',
+        "- 'sets' es un número; 'reps' es texto corto (ej: '6-8', '12 c/lado', 'Al fallo').",
+        "- Cada ejercicio lleva un 'tip' técnico breve y útil en español.",
+        "- El 'name' de cada día debe ser corto y descriptivo (ej: 'Día A · Empuje').",
+      );
+      if (hasInjuryInput) {
+        promptLines.push(
+          '- EVITA cualquier ejercicio que cargue directamente las zonas lesionadas indicadas arriba.',
+          "- Si una zona lesionada es inevitable de trabajar, elige la variante más segura y agrega una advertencia clara en el 'tip'.",
+        );
+      }
+      promptLines.push(
+        'Responde ÚNICAMENTE con JSON válido, sin markdown ni texto extra, con esta estructura exacta:',
+        '{"days":[{"name":"Día A","exercises":[{"name":"Sentadilla con barra","sets":4,"reps":"6-8","tip":"..."}]}]}',
       );
     }
-
-    promptLines.push(
-      'Responde ÚNICAMENTE con JSON válido, sin markdown ni texto extra, con esta estructura exacta:',
-      '{"days":[{"name":"Día A","exercises":[{"name":"Sentadilla con barra","sets":4,"reps":"6-8","tip":"..."}]}]}',
-    );
 
     const prompt = promptLines.join('\n');
 
@@ -120,64 +173,74 @@ export default function GeneratorTab({ applyDays }) {
       const text = await callAI({ provider, apiKey: apiKey.trim(), prompt });
       const clean = text.replace(/```json|```/g, '').trim();
       const parsed = JSON.parse(clean);
-      if (!parsed.days || !Array.isArray(parsed.days) || parsed.days.length === 0) throw new Error('la respuesta no trajo días válidos');
+      if (!parsed.days || !Array.isArray(parsed.days) || parsed.days.length === 0) throw new Error(t('gen.errInvalidResponse'));
       setPreview(parsed.days);
     } catch (e) {
       const msg = e && e.message ? e.message : '';
-      setErrMsg('No se pudo generar la rutina (' + (msg.includes('fetch') ? 'revisa tu conexión y que la clave sea válida' : msg) + ').');
+      setErrMsg(t('gen.errAI', { msg: msg.includes('fetch') ? t('gen.errConnection') : msg }));
     }
     setLoading(false);
   }
 
   function apply() {
-    const colors = [C.blue, C.purple, C.brown, C.green, C.gold, C.red, C.text];
     const ids = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
     const byName = {};
-    LIBRARY.forEach((e) => { byName[e.name.toLowerCase()] = e; });
-    const built = preview.map((d, i) => ({
-      id: ids[i] || String(i + 1),
-      name: d.name || 'Día ' + (ids[i] || i + 1),
-      color: colors[i % colors.length],
-      exercises: (d.exercises || []).map((x) => {
-        const found = byName[String(x.name || '').toLowerCase().trim()];
-        return {
-          id: uid(),
-          name: x.name || 'Ejercicio',
-          sets: Number(x.sets) || 3,
-          reps: String(x.reps || '10'),
-          video: found ? found.video : '',
-          muscle: found ? found.muscle : '',
-          tip: x.tip || '',
-        };
-      }),
-    }));
+    LIBRARY.forEach((e) => {
+      byName[pickLang(e.name, lang).toLowerCase()] = e;
+      byName[pickLang(e.name, 'es').toLowerCase()] = e;
+      byName[pickLang(e.name, 'en').toLowerCase()] = e;
+    });
+    const built = preview.map((d, i) => {
+      const belt = BJJ_BELTS[i % BJJ_BELTS.length];
+      return {
+        id: ids[i] || String(i + 1),
+        name: d.name || (lang === 'en' ? 'Day ' : 'Día ') + (ids[i] || i + 1),
+        color: belt.color,
+        stripeColor: belt.stripeColor,
+        exercises: (d.exercises || []).map((x) => {
+          const found = byName[String(x.name || '').toLowerCase().trim()];
+          return {
+            id: uid(),
+            name: x.name || (lang === 'en' ? 'Exercise' : 'Ejercicio'),
+            sets: Number(x.sets) || 3,
+            reps: String(x.reps || '10'),
+            video: found ? found.video : '',
+            muscle: found ? pickLang(found.muscle, lang) : '',
+            tip: x.tip || '',
+          };
+        }),
+      };
+    });
     applyDays(built);
     setPreview(null);
   }
 
   const hasKey = !!(keys[provider] || '').trim();
+  const injuriesField = injuries.size === 0
+    ? t('gen.injuries')
+    : injuries.size === 1
+      ? t('gen.injuriesCount', { n: 1 })
+      : t('gen.injuriesCountPl', { n: injuries.size });
 
   return (
     <div className="flex flex-col gap-4">
       <Card>
-        <h3 style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 20, textTransform: 'uppercase' }}>Generar rutina con IA</h3>
-        <p className="text-sm mt-1" style={{ color: C.dim }}>
-          Describe tu objetivo, marca el equipo que tienes y las lesiones a evitar. La IA arma un plan usando la biblioteca de {LIBRARY.length} ejercicios con video de técnica verificado.
-        </p>
+        <h3 style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 20, textTransform: 'uppercase' }}>{t('gen.title')}</h3>
+        <p className="text-sm mt-1" style={{ color: C.dim }}>{t('gen.intro', { n: LIBRARY.length })}</p>
       </Card>
 
       <Card>
-        <Field label="¿Qué buscas? (objetivo, deporte, tiempo, contexto…)">
+        <Field label={t('gen.goal')}>
           <textarea
             style={{ ...inputStyle, minHeight: 110, resize: 'vertical' }}
             value={goal}
             onChange={(e) => setGoal(e.target.value)}
-            placeholder="Ej: practico BJJ 3 veces por semana, quiero ganar masa muscular y fuerza de agarre. Tengo 50 minutos por sesión y entreno antes de rodar."
+            placeholder={t('gen.goalPlaceholder')}
           />
         </Field>
 
         <div className="mt-3">
-          <Field label="Días de pesas por semana">
+          <Field label={t('gen.daysPerWeek')}>
             <div className="flex gap-2 flex-wrap">
               {[1, 2, 3, 4, 5, 6, 7].map((n) => (
                 <button key={n} onClick={() => setNDays(n)} className="rounded-lg px-4 py-2 font-semibold" style={{
@@ -193,7 +256,32 @@ export default function GeneratorTab({ applyDays }) {
         </div>
 
         <div className="mt-3">
-          <Field label={'Equipo disponible · ' + available.length + ' ejercicios posibles'}>
+          <Field label={t('gen.timePerSession', { duration: formatDuration(minutes, lang) })}>
+            <div className="flex gap-2 items-center">
+              <select
+                value={Math.floor(minutes / 60)}
+                onChange={(e) => setMinutes(parseInt(e.target.value, 10) * 60 + (minutes % 60))}
+                style={{ ...inputStyle, width: 'auto', cursor: 'pointer' }}
+              >
+                {[0, 1, 2, 3, 4, 5, 6].map((h) => (
+                  <option key={h} value={h}>{h} {t('common.hours')}</option>
+                ))}
+              </select>
+              <select
+                value={minutes % 60}
+                onChange={(e) => setMinutes(Math.floor(minutes / 60) * 60 + parseInt(e.target.value, 10))}
+                style={{ ...inputStyle, width: 'auto', cursor: 'pointer' }}
+              >
+                {[0, 15, 30, 45].map((m) => (
+                  <option key={m} value={m}>{String(m).padStart(2, '0')} {t('common.minutes')}</option>
+                ))}
+              </select>
+            </div>
+          </Field>
+        </div>
+
+        <div className="mt-3">
+          <Field label={t('gen.equipment', { n: available.length })}>
             <div className="flex flex-wrap gap-2">
               {EQUIPMENT.map((e) => {
                 const on = sel.has(e.key);
@@ -203,7 +291,7 @@ export default function GeneratorTab({ applyDays }) {
                     color: on ? C.text : C.dim,
                     border: '1px solid ' + (on ? C.gold : C.line),
                     cursor: 'pointer',
-                  }}>{on ? '✓ ' : ''}{e.label}</button>
+                  }}>{on ? '✓ ' : ''}{equipmentLabel(e.key, lang)}</button>
                 );
               })}
             </div>
@@ -211,7 +299,7 @@ export default function GeneratorTab({ applyDays }) {
         </div>
 
         <div className="mt-3">
-          <Field label={'Lesiones a evitar' + (injuries.size > 0 ? ' · ' + injuries.size + ' seleccionada' + (injuries.size > 1 ? 's' : '') : '')}>
+          <Field label={injuriesField}>
             <div className="flex flex-wrap gap-2">
               {INJURIES.map((inj) => {
                 const on = injuries.has(inj.key);
@@ -221,18 +309,18 @@ export default function GeneratorTab({ applyDays }) {
                     color: on ? C.text : C.dim,
                     border: '1px solid ' + (on ? C.red : C.line),
                     cursor: 'pointer',
-                  }}>{on ? '✕ ' : ''}{inj.label}</button>
+                  }}>{on ? '✕ ' : ''}{injuryLabel(inj.key, lang)}</button>
                 );
               })}
             </div>
           </Field>
           <div className="mt-2">
-            <Field label="Detalles adicionales (opcional)">
+            <Field label={t('gen.injuryNotes')}>
               <textarea
                 style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }}
                 value={injuryNotes}
                 onChange={(e) => setInjuryNotes(e.target.value)}
-                placeholder="Ej: desgarro parcial de manguito rotador derecho, tendinitis crónica en codo izquierdo…"
+                placeholder={t('gen.injuryNotesPlaceholder')}
               />
             </Field>
           </div>
@@ -241,17 +329,17 @@ export default function GeneratorTab({ applyDays }) {
         {errMsg && <p className="text-sm mt-3" style={{ color: C.red }}>{errMsg}</p>}
         <div className="mt-4">
           <Btn full color={C.gold} onClick={loading ? () => {} : generate} style={{ opacity: loading ? 0.6 : 1 }}>
-            {loading ? 'Generando… (10-30 s)' : '✦ Generar rutina con IA'}
+            {loading ? t('gen.generating') : t('gen.generate')}
           </Btn>
         </div>
       </Card>
 
       {preview && (
         <Card style={{ border: '1px solid ' + C.green }}>
-          <h3 style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 20, textTransform: 'uppercase', color: C.green }}>Propuesta generada</h3>
+          <h3 style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 20, textTransform: 'uppercase', color: C.green }}>{t('gen.proposal')}</h3>
           {preview.map((d, i) => (
             <div key={i} className="mt-3">
-              <p className="font-semibold">{d.name || 'Día ' + (i + 1)}</p>
+              <p className="font-semibold">{d.name || (lang === 'en' ? 'Day ' : 'Día ') + (i + 1)}</p>
               <div className="mt-1 flex flex-col gap-1">
                 {(d.exercises || []).map((x, j) => (
                   <p key={j} className="text-sm" style={{ color: C.dim }}>• {x.name} — {x.sets}×{x.reps}</p>
@@ -260,23 +348,23 @@ export default function GeneratorTab({ applyDays }) {
             </div>
           ))}
           <div className="mt-4 flex gap-2">
-            <Btn color={C.green} onClick={apply}>Aplicar como mi rutina</Btn>
-            <Btn ghost onClick={() => setPreview(null)}>Descartar</Btn>
+            <Btn color={C.green} onClick={apply}>{t('gen.applyAsRoutine')}</Btn>
+            <Btn ghost onClick={() => setPreview(null)}>{t('gen.discard')}</Btn>
           </div>
-          <p className="text-xs mt-2" style={{ color: C.dim }}>Al aplicar se reemplaza tu rutina actual. El calentamiento, tus medidas e historial se conservan.</p>
+          <p className="text-xs mt-2" style={{ color: C.dim }}>{t('gen.applyNote')}</p>
         </Card>
       )}
 
       <Card style={{ background: C.surface2 }}>
         <button onClick={() => setShowKeyCfg(!showKeyCfg)} className="w-full flex items-center justify-between" style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.text }}>
-          <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 18, textTransform: 'uppercase' }}>Configurar IA</span>
+          <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 18, textTransform: 'uppercase' }}>{t('gen.configAI')}</span>
           <span className="text-sm" style={{ color: hasKey ? C.green : C.gold }}>
-            {cfg.label} · {hasKey ? '✓ ' : 'pendiente · '}{showKeyCfg ? '−' : '+'}
+            {cfg.label} · {hasKey ? t('gen.keySaved') : t('gen.keyRequired')}{showKeyCfg ? '−' : '+'}
           </span>
         </button>
         {showKeyCfg && (
           <div className="mt-3 flex flex-col gap-3">
-            <Field label="Proveedor de IA">
+            <Field label={t('gen.provider')}>
               <div className="flex flex-wrap gap-2">
                 {Object.keys(PROVIDERS).map((p) => {
                   const on = provider === p;
@@ -304,11 +392,11 @@ export default function GeneratorTab({ applyDays }) {
             </Field>
 
             <p className="text-xs" style={{ color: C.dim }}>
-              {cfg.keyHelp}. La clave se guarda solo en este navegador. No la ingreses en dispositivos ajenos.
+              {cfg.keyHelp}. {t('gen.keyNote')}
             </p>
 
             <div>
-              <Btn small color={C.gold} onClick={() => saveCurrentKey(false)}>Guardar</Btn>
+              <Btn small color={C.gold} onClick={() => saveCurrentKey(false)}>{t('common.save')}</Btn>
             </div>
           </div>
         )}
