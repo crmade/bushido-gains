@@ -21,18 +21,18 @@ function lastKgFor(sessions, exId, excludeDate) {
   return null;
 }
 
-function WeightInput({ kgValue, units, onSaveKg, lastKg, lastDate }) {
+function WeightInput({ kgValue, exUnit, onSaveKg, onUnitChange, lastKg, lastDate }) {
   const { t } = useLang();
-  const displayedKg = kgValue == null || kgValue === '' ? '' : String(kgToDisplay(kgValue, units));
+  const displayedKg = kgValue == null || kgValue === '' ? '' : String(kgToDisplay(kgValue, exUnit));
   const [local, setLocal] = useState(displayedKg);
 
   useEffect(() => {
-    const d = kgValue == null || kgValue === '' ? '' : String(kgToDisplay(kgValue, units));
+    const d = kgValue == null || kgValue === '' ? '' : String(kgToDisplay(kgValue, exUnit));
     setLocal(d);
-  }, [kgValue, units]);
+  }, [kgValue, exUnit]);
 
   function commit() {
-    const newKg = inputToKg(local, units);
+    const newKg = inputToKg(local, exUnit);
     const oldKg = kgValue == null || kgValue === '' ? null : Number(kgValue);
     const newRounded = newKg == null ? null : Math.round(newKg * 100) / 100;
     const oldRounded = oldKg == null ? null : Math.round(oldKg * 100) / 100;
@@ -48,12 +48,35 @@ function WeightInput({ kgValue, units, onSaveKg, lastKg, lastDate }) {
         onChange={(e) => setLocal(e.target.value)}
         onBlur={commit}
         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } }}
-        placeholder={weightUnit(units)}
+        placeholder={weightUnit(exUnit)}
         style={{ ...inputStyle, width: 100, padding: '6px 10px', fontSize: 14 }}
       />
+      {onUnitChange && (
+        <div className="flex" style={{ border: '1px solid ' + C.line, borderRadius: 6, overflow: 'hidden' }}>
+          {['kg', 'lbs'].map((u) => {
+            const on = exUnit === u;
+            return (
+              <button
+                key={u}
+                type="button"
+                onClick={() => { if (!on) onUnitChange(u); }}
+                style={{
+                  background: on ? C.gold : 'transparent',
+                  color: on ? C.ink : C.dim,
+                  border: 'none',
+                  cursor: on ? 'default' : 'pointer',
+                  padding: '4px 8px',
+                  fontSize: 11,
+                  fontWeight: 700,
+                }}
+              >{u}</button>
+            );
+          })}
+        </div>
+      )}
       {lastKg != null && (
         <span className="text-xs" style={{ color: C.dim }}>
-          {t('routine.lastWeight', { value: kgToDisplay(lastKg, units) + ' ' + weightUnit(units) })}
+          {t('routine.lastWeight', { value: kgToDisplay(lastKg, exUnit) + ' ' + weightUnit(exUnit) })}
           {lastDate ? ' · ' + fmtDate(lastDate) : ''}
         </span>
       )}
@@ -100,7 +123,7 @@ function SessionNotes({ value, onSave }) {
   );
 }
 
-export default function RoutineTab({ data, dayIdx, setDayIdx, editMode, setEditMode, patchExercise, addExercise, removeExercise, moveExercise, resetRoutine, toggleDone, sessions, setExerciseWeight, setSessionNotes, units }) {
+export default function RoutineTab({ data, dayIdx, setDayIdx, editMode, setEditMode, patchExercise, addExercise, removeExercise, moveExercise, resetRoutine, toggleDone, sessions, setExerciseWeight, setExerciseUnit, setSessionNotes, units }) {
   const { t, lang } = useLang();
   const [confirmReset, setConfirmReset] = useState(false);
   const day = data.routine.days[Math.min(dayIdx, data.routine.days.length - 1)];
@@ -171,8 +194,9 @@ export default function RoutineTab({ data, dayIdx, setDayIdx, editMode, setEditM
                     <p className="mt-1 text-sm font-semibold">{e.sets} × {e.reps}</p>
                     <WeightInput
                       kgValue={currentKg}
-                      units={units}
-                      onSaveKg={(kg) => setExerciseWeight(e.id, kg)}
+                      exUnit={e.unit || units}
+                      onSaveKg={(kg) => setExerciseWeight(e.id, kg, { name: e.name, unit: e.unit || units })}
+                      onUnitChange={setExerciseUnit ? (u) => setExerciseUnit(day.id, e.id, u) : null}
                       lastKg={last?.kg}
                       lastDate={last?.date}
                     />

@@ -15,7 +15,7 @@ function bmiOf(weight, heightCm) {
   return Math.round((weight / (h * h)) * 10) / 10;
 }
 
-export default function ProgressTab({ data, user, addMetric, deleteMetric, editMetric, deleteAllMetrics, updateUser, deleteSession, deleteAllSessions, updateSessionNotes, units = 'kg' }) {
+export default function ProgressTab({ data, user, addMetric, deleteMetric, editMetric, deleteAllMetrics, updateUser, deleteSession, deleteAllSessions, updateSessionNotes, updateSessionWeight, units = 'kg' }) {
   const { t } = useLang();
   const [date, setDate] = useState(todayStr());
   const [weight, setWeight] = useState('');
@@ -251,7 +251,7 @@ export default function ProgressTab({ data, user, addMetric, deleteMetric, editM
         </div>
       </Card>
 
-      <SessionsHistory data={data} deleteSession={deleteSession} deleteAllSessions={deleteAllSessions} updateSessionNotes={updateSessionNotes} units={units} />
+      <SessionsHistory data={data} deleteSession={deleteSession} deleteAllSessions={deleteAllSessions} updateSessionNotes={updateSessionNotes} updateSessionWeight={updateSessionWeight} units={units} />
     </div>
   );
 }

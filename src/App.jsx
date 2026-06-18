@@ -214,16 +214,39 @@ export default function App() {
     persistData({ ...data, done: { ...data.done, [tDate]: day } });
   }
 
+  function setExerciseUnit(dayId, exId, unit) {
+    const next = {
+      ...data,
+      routine: {
+        ...data.routine,
+        days: data.routine.days.map((d) => (d.id !== dayId ? d : {
+          ...d,
+          exercises: d.exercises.map((e) => (e.id === exId ? { ...e, unit } : e)),
+        })),
+      },
+    };
+    persistData(next);
+  }
+
   // ---- Sesiones de entrenamiento ----
-  function setExerciseWeight(exId, weightKg) {
+  function setExerciseWeight(exId, weightKg, meta = {}) {
     const tDate = todayStr();
     const dayId = data.routine.days[Math.min(dayIdx, data.routine.days.length - 1)].id;
     const sessions = { ...(data.sessions || {}) };
     const cur = sessions[tDate] || { date: tDate, dayId, notes: '', exercises: {} };
+    const prev = cur.exercises[exId] || {};
     sessions[tDate] = {
       ...cur,
       dayId,
-      exercises: { ...cur.exercises, [exId]: { ...(cur.exercises[exId] || {}), weight: weightKg } },
+      exercises: {
+        ...cur.exercises,
+        [exId]: {
+          ...prev,
+          weight: weightKg,
+          name: meta.name ?? prev.name,
+          unit: meta.unit ?? prev.unit,
+        },
+      },
     };
     persistData({ ...data, sessions });
   }
@@ -248,11 +271,32 @@ export default function App() {
   function deleteSession(date) {
     const sessions = { ...(data.sessions || {}) };
     delete sessions[date];
-    persistData({ ...data, sessions });
+    const done = { ...(data.done || {}) };
+    delete done[date];
+    persistData({ ...data, sessions, done });
   }
 
   function deleteAllSessions() {
-    persistData({ ...data, sessions: {} });
+    persistData({ ...data, sessions: {}, done: {} });
+  }
+
+  function updateSessionWeight(date, exId, weightKg, meta = {}) {
+    const sessions = { ...(data.sessions || {}) };
+    const cur = sessions[date] || { date, dayId: null, notes: '', exercises: {} };
+    const prev = cur.exercises[exId] || {};
+    sessions[date] = {
+      ...cur,
+      exercises: {
+        ...cur.exercises,
+        [exId]: {
+          ...prev,
+          weight: weightKg,
+          name: meta.name ?? prev.name,
+          unit: meta.unit ?? prev.unit,
+        },
+      },
+    };
+    persistData({ ...data, sessions });
   }
 
   // ---- Diario BJJ ----
@@ -359,6 +403,7 @@ export default function App() {
             toggleDone={toggleDone}
             sessions={data.sessions || {}}
             setExerciseWeight={setExerciseWeight}
+            setExerciseUnit={setExerciseUnit}
             setSessionNotes={setSessionNotes}
             units={units}
           />
@@ -378,6 +423,7 @@ export default function App() {
             deleteSession={deleteSession}
             deleteAllSessions={deleteAllSessions}
             updateSessionNotes={updateSessionNotes}
+            updateSessionWeight={updateSessionWeight}
             units={units}
           />
         )}

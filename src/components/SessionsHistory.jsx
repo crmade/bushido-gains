@@ -1,37 +1,22 @@
 import { useState, useMemo } from 'react';
 import { C, FONT_DISPLAY, inputStyle } from '../lib/theme';
 import { fmtDate } from '../lib/utils';
-import { kgToDisplay, weightUnit } from '../lib/units';
+import { kgToDisplay, inputToKg, weightUnit } from '../lib/units';
 import { useLang } from '../lib/i18n.jsx';
 import { BJJ_BELTS, beltName } from '../data/bjj';
 import Btn from './Btn';
 import Card from './Card';
 
-export default function SessionsHistory({ data, deleteSession, deleteAllSessions, updateSessionNotes, units = 'kg' }) {
+export default function SessionsHistory({ data, deleteSession, deleteAllSessions, updateSessionNotes, updateSessionWeight, units = 'kg' }) {
   const { t, lang } = useLang();
   const [confirmDel, setConfirmDel] = useState(null);
   const [confirmClear, setConfirmClear] = useState(false);
   const [filterDay, setFilterDay] = useState(null);
   const [editingNotes, setEditingNotes] = useState(null);
   const [draftNotes, setDraftNotes] = useState('');
-
-  const sessionsList = useMemo(() => {
-    const obj = data.sessions || {};
-    return Object.values(obj)
-      .filter((s) => {
-        if (!s) return false;
-        const hasWeights = s.exercises && Object.values(s.exercises).some((ex) => ex?.weight != null && ex.weight !== '');
-        const hasNotes = s.notes && s.notes.trim();
-        return hasWeights || hasNotes;
-      })
-      .sort((a, b) => (a.date < b.date ? 1 : -1));
-  }, [data.sessions]);
-
-  const dayById = useMemo(() => {
-    const m = {};
-    (data.routine?.days || []).forEach((d, i) => { m[d.id] = { ...d, index: i }; });
-    return m;
-  }, [data.routine]);
+  const [editingWeight, setEditingWeight] = useState(null);
+  const [weightDraft, setWeightDraft] = useState('');
+  const [weightDraftUnit, setWeightDraftUnit] = useState('kg');
 
   const exerciseById = useMemo(() => {
     const m = {};
@@ -40,6 +25,44 @@ export default function SessionsHistory({ data, deleteSession, deleteAllSessions
     });
     return m;
   }, [data.routine]);
+
+  const dayById = useMemo(() => {
+    const m = {};
+    (data.routine?.days || []).forEach((d, i) => { m[d.id] = { ...d, index: i }; });
+    return m;
+  }, [data.routine]);
+
+  const sessionsList = useMemo(() => {
+    const sessions = data.sessions || {};
+    const done = data.done || {};
+    const allDates = new Set([...Object.keys(sessions), ...Object.keys(done)]);
+    const list = [...allDates].map((date) => {
+      const s = sessions[date] || {};
+      const checks = done[date] || {};
+      const checkedIds = Object.keys(checks).filter((id) => checks[id]);
+      let dayId = s.dayId;
+      if (!dayId) {
+        for (const id of checkedIds) {
+          if (exerciseById[id]?.dayId) { dayId = exerciseById[id].dayId; break; }
+        }
+      }
+      return {
+        date,
+        dayId: dayId || null,
+        notes: s.notes || '',
+        exercises: s.exercises || {},
+        checkedIds,
+      };
+    });
+    return list
+      .filter((s) => {
+        const hasWeights = Object.values(s.exercises).some((ex) => ex?.weight != null && ex.weight !== '');
+        const hasNotes = s.notes && s.notes.trim();
+        const hasDayChecks = s.checkedIds.some((id) => exerciseById[id]);
+        return hasWeights || hasNotes || hasDayChecks;
+      })
+      .sort((a, b) => (a.date < b.date ? 1 : -1));
+  }, [data.sessions, data.done, exerciseById]);
 
   const dayIdsInSessions = useMemo(() => {
     const s = new Set();
@@ -110,9 +133,17 @@ export default function SessionsHistory({ data, deleteSession, deleteAllSessions
         const dayColor = day?.color || C.gold;
         const belt = day ? BJJ_BELTS[Math.min(day.index, BJJ_BELTS.length - 1)] : null;
         const beltLabel = belt ? beltName(belt, lang) : '';
-        const entries = Object.entries(s.exercises || {})
-          .map(([exId, val]) => ({ exId, weight: val?.weight, ex: exerciseById[exId] }))
-          .filter((e) => e.weight != null && e.weight !== '');
+        const exIds = new Set([
+          ...Object.keys(s.exercises || {}).filter((id) => {
+            const ent = s.exercises[id];
+            return (ent?.weight != null && ent.weight !== '') || ent?.name;
+          }),
+          ...s.checkedIds.filter((id) => exerciseById[id]),
+        ]);
+        const entries = [...exIds].map((exId) => {
+          const val = s.exercises?.[exId] || {};
+          return { exId, weight: val.weight, snapName: val.name, snapUnit: val.unit, ex: exerciseById[exId] };
+        });
 
         return (
           <Card key={s.date}>
@@ -145,12 +176,106 @@ export default function SessionsHistory({ data, deleteSession, deleteAllSessions
 
             {entries.length > 0 && (
               <div className="mt-3 flex flex-col gap-1">
-                {entries.map(({ exId, weight, ex }) => (
-                  <div key={exId} className="flex justify-between gap-2 text-sm">
-                    <span className="flex-1" style={{ color: C.text }}>{ex ? ex.name : t('sessions.exerciseMissing')}</span>
-                    <span className="font-semibold" style={{ color: dayColor }}>{kgToDisplay(weight, units)} {weightUnit(units)}</span>
-                  </div>
-                ))}
+                {entries.map(({ exId, weight, snapName, snapUnit, ex }) => {
+                  const name = snapName || ex?.name || t('sessions.exerciseMissing');
+                  const u = snapUnit || ex?.unit || units;
+                  const hasWeight = weight != null && weight !== '';
+                  const isEditing = editingWeight && editingWeight.date === s.date && editingWeight.exId === exId;
+
+                  function saveWeight() {
+                    const trimmed = (weightDraft || '').trim();
+                    const kg = trimmed === '' ? null : inputToKg(trimmed, weightDraftUnit);
+                    const oldKg = hasWeight ? Math.round(Number(weight) * 100) / 100 : null;
+                    const newKg = kg == null ? null : Math.round(kg * 100) / 100;
+                    const unitChanged = kg != null && weightDraftUnit !== u;
+                    if (newKg !== oldKg || unitChanged) {
+                      updateSessionWeight(s.date, exId, kg, { name, unit: kg != null ? weightDraftUnit : u });
+                    }
+                    setEditingWeight(null);
+                  }
+
+                  return (
+                    <div key={exId} className="flex items-center justify-between gap-2 text-sm">
+                      <span className="flex-1" style={{ color: C.text }}>{name}</span>
+                      {isEditing ? (
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            autoFocus
+                            value={weightDraft}
+                            onChange={(e) => setWeightDraft(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') { e.preventDefault(); saveWeight(); }
+                              if (e.key === 'Escape') { e.preventDefault(); setEditingWeight(null); }
+                            }}
+                            placeholder={weightUnit(weightDraftUnit)}
+                            style={{ ...inputStyle, width: 65, padding: '4px 8px', fontSize: 13 }}
+                          />
+                          <div className="flex" style={{ border: '1px solid ' + C.line, borderRadius: 6, overflow: 'hidden' }}>
+                            {['kg', 'lbs'].map((uu) => {
+                              const on = weightDraftUnit === uu;
+                              return (
+                                <button
+                                  key={uu}
+                                  type="button"
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  onClick={() => {
+                                    if (on) return;
+                                    const trimmed = (weightDraft || '').trim();
+                                    if (trimmed !== '') {
+                                      const kg = inputToKg(trimmed, weightDraftUnit);
+                                      if (kg != null) setWeightDraft(String(kgToDisplay(kg, uu)));
+                                    }
+                                    setWeightDraftUnit(uu);
+                                  }}
+                                  style={{
+                                    background: on ? C.gold : 'transparent',
+                                    color: on ? C.ink : C.dim,
+                                    border: 'none',
+                                    cursor: on ? 'default' : 'pointer',
+                                    padding: '3px 7px',
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                  }}
+                                >{uu}</button>
+                              );
+                            })}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={saveWeight}
+                            style={{ background: 'none', border: 'none', color: C.gold, cursor: 'pointer', fontSize: 16, padding: '0 4px' }}
+                            aria-label={t('common.save')}
+                          >✓</button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingWeight(null)}
+                            style={{ background: 'none', border: 'none', color: C.dim, cursor: 'pointer', fontSize: 16, padding: '0 4px' }}
+                            aria-label={t('common.cancel')}
+                          >×</button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold" style={{ color: hasWeight ? dayColor : C.dim }}>
+                            {hasWeight ? (kgToDisplay(weight, u) + ' ' + weightUnit(u)) : '—'}
+                          </span>
+                          {updateSessionWeight && (
+                            <button
+                              onClick={() => {
+                                setEditingWeight({ date: s.date, exId });
+                                setWeightDraftUnit(u);
+                                setWeightDraft(hasWeight ? String(kgToDisplay(weight, u)) : '');
+                              }}
+                              aria-label={t('common.edit')}
+                              style={{ background: 'none', border: 'none', color: C.dim, cursor: 'pointer', fontSize: 12, padding: 0 }}
+                            >✎</button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
 
