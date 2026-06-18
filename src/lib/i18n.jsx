@@ -138,6 +138,8 @@ const es = {
   'sessions.clearConfirm': 'Sí, borrar',
   'sessions.dayMissing': 'Día {id} (ya no existe en tu rutina)',
   'sessions.exerciseMissing': '(ejercicio eliminado)',
+  'sessions.noNotes': 'Sin notas',
+  'sessions.addNotes': 'Agregar notas',
   // Generator
   'gen.title': 'Generar rutina con IA',
   'gen.intro': 'Describe tu objetivo, marca el equipo que tienes y las lesiones a evitar. La IA arma un plan usando la biblioteca de {n} ejercicios.',
@@ -350,6 +352,8 @@ const en = {
   'sessions.clearConfirm': 'Yes, clear',
   'sessions.dayMissing': 'Day {id} (no longer in your routine)',
   'sessions.exerciseMissing': '(exercise deleted)',
+  'sessions.noNotes': 'No notes',
+  'sessions.addNotes': 'Add notes',
   // Generator
   'gen.title': 'Generate routine with AI',
   'gen.intro': 'Describe your goal, mark your equipment and injuries to avoid. The AI builds a plan using the library of {n} exercises.',

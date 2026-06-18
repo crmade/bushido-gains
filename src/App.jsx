@@ -237,6 +237,14 @@ export default function App() {
     persistData({ ...data, sessions });
   }
 
+  function updateSessionNotes(date, notes) {
+    const sessions = { ...(data.sessions || {}) };
+    const cur = sessions[date];
+    if (!cur) return;
+    sessions[date] = { ...cur, notes: notes || '' };
+    persistData({ ...data, sessions });
+  }
+
   function deleteSession(date) {
     const sessions = { ...(data.sessions || {}) };
     delete sessions[date];
@@ -266,6 +274,12 @@ export default function App() {
   }
   function deleteMetric(id) {
     persistData({ ...data, metrics: data.metrics.filter((m) => m.id !== id) });
+  }
+  function editMetric(id, patch) {
+    const metrics = data.metrics
+      .map((m) => (m.id === id ? { ...m, ...patch } : m))
+      .sort((a, b) => (a.date < b.date ? -1 : 1));
+    persistData({ ...data, metrics });
   }
   function deleteAllMetrics() {
     persistData({ ...data, metrics: [] });
@@ -358,10 +372,12 @@ export default function App() {
             user={activeUser}
             addMetric={addMetric}
             deleteMetric={deleteMetric}
+            editMetric={editMetric}
             deleteAllMetrics={deleteAllMetrics}
             updateUser={updateUser}
             deleteSession={deleteSession}
             deleteAllSessions={deleteAllSessions}
+            updateSessionNotes={updateSessionNotes}
             units={units}
           />
         )}

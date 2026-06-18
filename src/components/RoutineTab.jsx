@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { C, FONT_DISPLAY, inputStyle } from '../lib/theme';
 import { todayStr, fmtDate } from '../lib/utils';
 import { kgToDisplay, inputToKg, weightUnit } from '../lib/units';
@@ -64,10 +64,25 @@ function WeightInput({ kgValue, units, onSaveKg, lastKg, lastDate }) {
 function SessionNotes({ value, onSave }) {
   const { t } = useLang();
   const [local, setLocal] = useState(value || '');
-  useEffect(() => { setLocal(value || ''); }, [value]);
+  const timerRef = useRef(null);
+  const valueRef = useRef(value || '');
+  valueRef.current = value || '';
+
+  useEffect(() => () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+  }, []);
+
+  function scheduleSave(next) {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      timerRef.current = null;
+      if (next !== valueRef.current) onSave(next);
+    }, 700);
+  }
 
   function commit() {
-    if (local !== (value || '')) onSave(local);
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+    if (local !== valueRef.current) onSave(local);
   }
 
   return (
@@ -76,7 +91,7 @@ function SessionNotes({ value, onSave }) {
         <textarea
           style={{ ...inputStyle, minHeight: 80, resize: 'vertical', fontSize: 14 }}
           value={local}
-          onChange={(e) => setLocal(e.target.value)}
+          onChange={(e) => { setLocal(e.target.value); scheduleSave(e.target.value); }}
           onBlur={commit}
           placeholder={t('routine.sessionPlaceholder')}
         />
@@ -210,7 +225,7 @@ export default function RoutineTab({ data, dayIdx, setDayIdx, editMode, setEditM
       )}
 
       {!editMode && setSessionNotes && (
-        <SessionNotes value={todaySession.notes || ''} onSave={setSessionNotes} />
+        <SessionNotes key={today} value={todaySession.notes || ''} onSave={setSessionNotes} />
       )}
 
       <WhenToChange />

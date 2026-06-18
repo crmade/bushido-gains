@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { C, FONT_DISPLAY } from '../lib/theme';
+import { C, FONT_DISPLAY, inputStyle } from '../lib/theme';
 import { fmtDate } from '../lib/utils';
 import { kgToDisplay, weightUnit } from '../lib/units';
 import { useLang } from '../lib/i18n.jsx';
@@ -7,11 +7,13 @@ import { BJJ_BELTS, beltName } from '../data/bjj';
 import Btn from './Btn';
 import Card from './Card';
 
-export default function SessionsHistory({ data, deleteSession, deleteAllSessions, units = 'kg' }) {
+export default function SessionsHistory({ data, deleteSession, deleteAllSessions, updateSessionNotes, units = 'kg' }) {
   const { t, lang } = useLang();
   const [confirmDel, setConfirmDel] = useState(null);
   const [confirmClear, setConfirmClear] = useState(false);
   const [filterDay, setFilterDay] = useState(null);
+  const [editingNotes, setEditingNotes] = useState(null);
+  const [draftNotes, setDraftNotes] = useState('');
 
   const sessionsList = useMemo(() => {
     const obj = data.sessions || {};
@@ -152,11 +154,32 @@ export default function SessionsHistory({ data, deleteSession, deleteAllSessions
               </div>
             )}
 
-            {s.notes && s.notes.trim() && (
-              <p className="text-sm mt-3 whitespace-pre-wrap" style={{ color: C.dim, borderTop: '1px solid ' + C.line, paddingTop: 8 }}>
-                {s.notes}
-              </p>
-            )}
+            {editingNotes === s.date ? (
+              <div className="mt-3 flex flex-col gap-2" style={{ borderTop: '1px solid ' + C.line, paddingTop: 8 }}>
+                <textarea
+                  style={{ ...inputStyle, minHeight: 80, resize: 'vertical', fontSize: 14 }}
+                  value={draftNotes}
+                  onChange={(e) => setDraftNotes(e.target.value)}
+                  placeholder={t('routine.sessionPlaceholder')}
+                />
+                <div className="flex gap-2">
+                  <Btn small color={C.gold} onClick={() => { updateSessionNotes(s.date, draftNotes); setEditingNotes(null); }}>{t('common.save')}</Btn>
+                  <Btn small ghost onClick={() => setEditingNotes(null)}>{t('common.cancel')}</Btn>
+                </div>
+              </div>
+            ) : (s.notes && s.notes.trim()) ? (
+              <div className="mt-3 flex items-start justify-between gap-2" style={{ borderTop: '1px solid ' + C.line, paddingTop: 8 }}>
+                <p className="text-sm flex-1 whitespace-pre-wrap" style={{ color: C.dim }}>{s.notes}</p>
+                {updateSessionNotes && (
+                  <button onClick={() => { setEditingNotes(s.date); setDraftNotes(s.notes || ''); }} className="text-xs hover:underline" style={{ color: C.dim, background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0 }}>{t('common.edit')}</button>
+                )}
+              </div>
+            ) : updateSessionNotes ? (
+              <div className="mt-3 flex items-center justify-between gap-2" style={{ borderTop: '1px solid ' + C.line, paddingTop: 8 }}>
+                <p className="text-xs italic" style={{ color: C.dim }}>{t('sessions.noNotes')}</p>
+                <button onClick={() => { setEditingNotes(s.date); setDraftNotes(''); }} className="text-xs hover:underline" style={{ color: C.dim, background: 'none', border: 'none', cursor: 'pointer' }}>{t('sessions.addNotes')}</button>
+              </div>
+            ) : null}
           </Card>
         );
       })}

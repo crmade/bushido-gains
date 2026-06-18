@@ -15,7 +15,7 @@ function bmiOf(weight, heightCm) {
   return Math.round((weight / (h * h)) * 10) / 10;
 }
 
-export default function ProgressTab({ data, user, addMetric, deleteMetric, deleteAllMetrics, updateUser, deleteSession, deleteAllSessions, units = 'kg' }) {
+export default function ProgressTab({ data, user, addMetric, deleteMetric, editMetric, deleteAllMetrics, updateUser, deleteSession, deleteAllSessions, updateSessionNotes, units = 'kg' }) {
   const { t } = useLang();
   const [date, setDate] = useState(todayStr());
   const [weight, setWeight] = useState('');
@@ -26,6 +26,35 @@ export default function ProgressTab({ data, user, addMetric, deleteMetric, delet
   const [err, setErr] = useState('');
   const [confirmDel, setConfirmDel] = useState(null);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editDraft, setEditDraft] = useState({ date: '', weight: '', fat: '', muscle: '' });
+  const [editErr, setEditErr] = useState('');
+
+  function startEdit(m) {
+    setEditingId(m.id);
+    setEditDraft({
+      date: m.date,
+      weight: m.weight != null ? String(kgToDisplay(m.weight, units)) : '',
+      fat: m.fat != null ? String(m.fat) : '',
+      muscle: m.muscle != null ? String(m.muscle) : '',
+    });
+    setEditErr('');
+    setConfirmDel(null);
+  }
+
+  function saveEdit() {
+    const wKg = inputToKg(editDraft.weight, units);
+    if (!editDraft.date) { setEditErr(t('progress.errDate')); return; }
+    if (!wKg || !Number.isFinite(wKg)) { setEditErr(t('progress.errWeight')); return; }
+    editMetric(editingId, {
+      date: editDraft.date,
+      weight: wKg,
+      fat: editDraft.fat === '' ? null : parseFloat(editDraft.fat),
+      muscle: editDraft.muscle === '' ? null : parseFloat(editDraft.muscle),
+    });
+    setEditingId(null);
+    setEditErr('');
+  }
 
   const METRIC_DEFS = {
     weight: { label: t('progress.metricWeight'), unit: weightUnit(units), color: C.gold },
@@ -160,33 +189,69 @@ export default function ProgressTab({ data, user, addMetric, deleteMetric, delet
         {metricsAsc.length === 0 && <p className="text-sm" style={{ color: C.dim }}>{t('progress.empty')}</p>}
         <div className="flex flex-col">
           {[...metricsAsc].reverse().map((m) => (
-            <div key={m.id} className="flex items-center justify-between py-2" style={{ borderBottom: '1px solid ' + C.line }}>
-              <div className="flex-1">
-                <p className="font-semibold text-sm">{fmtDate(m.date)} · {kgToDisplay(m.weight, units)} {weightUnit(units)}{heightCm ? ' · ' + t('progress.bmi') + ' ' + bmiOf(m.weight, heightCm) : ''}</p>
-                <p className="text-xs" style={{ color: C.dim }}>
-                  {m.fat != null ? t('progress.fatLabel', { n: m.fat }) : ''}{m.fat != null && m.muscle != null ? ' · ' : ''}{m.muscle != null ? t('progress.muscleLabel', { n: m.muscle }) : ''}
-                  {m.fat == null && m.muscle == null ? t('progress.weightOnly') : ''}
-                </p>
-              </div>
-              {confirmDel === m.id ? (
-                <div className="flex gap-1">
-                  <Btn small color={C.red} onClick={() => { deleteMetric(m.id); setConfirmDel(null); }}>{t('common.delete')}</Btn>
-                  <Btn small ghost onClick={() => setConfirmDel(null)}>{t('common.cancel')}</Btn>
+            <div key={m.id} className="py-2" style={{ borderBottom: '1px solid ' + C.line }}>
+              {editingId === m.id ? (
+                <div className="flex flex-col gap-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <Field label={t('progress.date')}>
+                      <input style={inputStyle} type="date" value={editDraft.date} onChange={(e) => setEditDraft({ ...editDraft, date: e.target.value })} />
+                    </Field>
+                    <Field label={t('progress.weight', { unit: weightUnit(units) })}>
+                      <input style={inputStyle} type="number" inputMode="decimal" value={editDraft.weight} onChange={(e) => setEditDraft({ ...editDraft, weight: e.target.value })} />
+                    </Field>
+                    <Field label={t('progress.fat')}>
+                      <input style={inputStyle} type="number" inputMode="decimal" value={editDraft.fat} onChange={(e) => setEditDraft({ ...editDraft, fat: e.target.value })} />
+                    </Field>
+                    <Field label={t('progress.muscle')}>
+                      <input style={inputStyle} type="number" inputMode="decimal" value={editDraft.muscle} onChange={(e) => setEditDraft({ ...editDraft, muscle: e.target.value })} />
+                    </Field>
+                  </div>
+                  {editErr && <p className="text-sm" style={{ color: C.red }}>{editErr}</p>}
+                  <div className="flex gap-2">
+                    <Btn small color={C.gold} onClick={saveEdit}>{t('common.save')}</Btn>
+                    <Btn small ghost onClick={() => { setEditingId(null); setEditErr(''); }}>{t('common.cancel')}</Btn>
+                  </div>
                 </div>
               ) : (
-                <button
-                  onClick={() => setConfirmDel(m.id)}
-                  aria-label={t('common.delete')}
-                  className="rounded-full"
-                  style={{ background: 'transparent', border: '1px solid ' + C.line, color: C.dim, cursor: 'pointer', fontSize: 14, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                >×</button>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex-1">
+                    <p className="font-semibold text-sm">{fmtDate(m.date)} · {kgToDisplay(m.weight, units)} {weightUnit(units)}{heightCm ? ' · ' + t('progress.bmi') + ' ' + bmiOf(m.weight, heightCm) : ''}</p>
+                    <p className="text-xs" style={{ color: C.dim }}>
+                      {m.fat != null ? t('progress.fatLabel', { n: m.fat }) : ''}{m.fat != null && m.muscle != null ? ' · ' : ''}{m.muscle != null ? t('progress.muscleLabel', { n: m.muscle }) : ''}
+                      {m.fat == null && m.muscle == null ? t('progress.weightOnly') : ''}
+                    </p>
+                  </div>
+                  {confirmDel === m.id ? (
+                    <div className="flex gap-1">
+                      <Btn small color={C.red} onClick={() => { deleteMetric(m.id); setConfirmDel(null); }}>{t('common.delete')}</Btn>
+                      <Btn small ghost onClick={() => setConfirmDel(null)}>{t('common.cancel')}</Btn>
+                    </div>
+                  ) : (
+                    <div className="flex gap-1 items-center">
+                      {editMetric && (
+                        <button
+                          onClick={() => startEdit(m)}
+                          aria-label={t('common.edit')}
+                          className="text-xs hover:underline"
+                          style={{ background: 'none', border: 'none', color: C.dim, cursor: 'pointer' }}
+                        >{t('common.edit')}</button>
+                      )}
+                      <button
+                        onClick={() => { setConfirmDel(m.id); setEditingId(null); }}
+                        aria-label={t('common.delete')}
+                        className="rounded-full"
+                        style={{ background: 'transparent', border: '1px solid ' + C.line, color: C.dim, cursor: 'pointer', fontSize: 14, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      >×</button>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           ))}
         </div>
       </Card>
 
-      <SessionsHistory data={data} deleteSession={deleteSession} deleteAllSessions={deleteAllSessions} units={units} />
+      <SessionsHistory data={data} deleteSession={deleteSession} deleteAllSessions={deleteAllSessions} updateSessionNotes={updateSessionNotes} units={units} />
     </div>
   );
 }
