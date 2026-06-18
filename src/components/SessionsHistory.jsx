@@ -18,19 +18,25 @@ export default function SessionsHistory({ data, deleteSession, deleteAllSessions
   const [weightDraft, setWeightDraft] = useState('');
   const [weightDraftUnit, setWeightDraftUnit] = useState('kg');
 
+  const allRoutines = data.routines || [];
+
   const exerciseById = useMemo(() => {
     const m = {};
-    (data.routine?.days || []).forEach((d) => {
-      (d.exercises || []).forEach((e) => { m[e.id] = { ...e, dayId: d.id }; });
+    allRoutines.forEach((r) => {
+      (r.days || []).forEach((d) => {
+        (d.exercises || []).forEach((e) => { if (!m[e.id]) m[e.id] = { ...e, dayId: d.id, routineId: r.id }; });
+      });
     });
     return m;
-  }, [data.routine]);
+  }, [allRoutines]);
 
   const dayById = useMemo(() => {
     const m = {};
-    (data.routine?.days || []).forEach((d, i) => { m[d.id] = { ...d, index: i }; });
+    allRoutines.forEach((r) => {
+      (r.days || []).forEach((d, i) => { if (!m[d.id]) m[d.id] = { ...d, index: i, routineId: r.id }; });
+    });
     return m;
-  }, [data.routine]);
+  }, [allRoutines]);
 
   const sessionsList = useMemo(() => {
     const sessions = data.sessions || {};

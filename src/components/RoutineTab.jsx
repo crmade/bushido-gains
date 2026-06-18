@@ -123,10 +123,15 @@ function SessionNotes({ value, onSave }) {
   );
 }
 
-export default function RoutineTab({ data, dayIdx, setDayIdx, editMode, setEditMode, patchExercise, addExercise, removeExercise, moveExercise, resetRoutine, toggleDone, sessions, setExerciseWeight, setExerciseUnit, setSessionNotes, units }) {
+export default function RoutineTab({ data, routine, routines, activeRoutineId, setActiveRoutine, renameRoutine, deleteRoutine, duplicateRoutine, addRoutine, dayIdx, setDayIdx, editMode, setEditMode, patchExercise, addExercise, removeExercise, moveExercise, resetRoutine, toggleDone, sessions, setExerciseWeight, setExerciseUnit, setSessionNotes, units }) {
   const { t, lang } = useLang();
   const [confirmReset, setConfirmReset] = useState(false);
-  const day = data.routine.days[Math.min(dayIdx, data.routine.days.length - 1)];
+  const [manageOpen, setManageOpen] = useState(false);
+  const [renameDraft, setRenameDraft] = useState('');
+  const [confirmDeleteRoutine, setConfirmDeleteRoutine] = useState(false);
+  const [newRoutineName, setNewRoutineName] = useState('');
+  const [showNewRoutine, setShowNewRoutine] = useState(false);
+  const day = routine.days[Math.min(dayIdx, routine.days.length - 1)];
   const today = todayStr();
   const doneToday = data.done[today] || {};
   const doneCount = day.exercises.filter((e) => doneToday[e.id]).length;
@@ -134,11 +139,65 @@ export default function RoutineTab({ data, dayIdx, setDayIdx, editMode, setEditM
   const belt = BJJ_BELTS[Math.min(dayIdx, BJJ_BELTS.length - 1)];
   const beltLabel = beltName(belt, lang);
   const everyN = day.exercises.length > 0 ? Math.max(1, Math.ceil(day.exercises.length / 4)) : 0;
+  const canManage = routines && routines.length > 0;
 
   return (
     <div className="flex flex-col gap-4">
+      {canManage && (
+        <Card style={{ background: C.surface2, padding: 12 }}>
+          <div className="flex items-center gap-2">
+            <select
+              value={activeRoutineId || ''}
+              onChange={(e) => setActiveRoutine && setActiveRoutine(e.target.value)}
+              style={{ ...inputStyle, flex: 1, padding: '8px 10px', fontSize: 14 }}
+            >
+              {routines.map((r) => (
+                <option key={r.id} value={r.id}>{r.name}</option>
+              ))}
+            </select>
+            <button
+              onClick={() => { setManageOpen(!manageOpen); setRenameDraft(routine.name); setConfirmDeleteRoutine(false); setShowNewRoutine(false); }}
+              aria-label={t('routine.manage')}
+              style={{ background: 'transparent', border: '1px solid ' + C.line, color: C.text, borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: 16 }}
+            >⚙</button>
+          </div>
+          {manageOpen && (
+            <div className="mt-3 flex flex-col gap-2">
+              <Field label={t('routine.renameLabel')}>
+                <div className="flex gap-2">
+                  <input style={{ ...inputStyle, flex: 1 }} value={renameDraft} onChange={(e) => setRenameDraft(e.target.value)} />
+                  <Btn small color={C.gold} onClick={() => { if (renameDraft.trim() && renameRoutine) { renameRoutine(activeRoutineId, renameDraft.trim()); } }}>{t('common.save')}</Btn>
+                </div>
+              </Field>
+              <div className="flex gap-2 flex-wrap">
+                {duplicateRoutine && (
+                  <Btn small ghost onClick={() => duplicateRoutine(activeRoutineId)}>{t('routine.duplicate')}</Btn>
+                )}
+                {!showNewRoutine && addRoutine && (
+                  <Btn small ghost color={C.gold} onClick={() => setShowNewRoutine(true)}>{t('routine.createNew')}</Btn>
+                )}
+                {deleteRoutine && routines.length > 1 && (
+                  confirmDeleteRoutine ? (
+                    <Btn small color={C.red} onClick={() => { deleteRoutine(activeRoutineId); setConfirmDeleteRoutine(false); setManageOpen(false); }}>{t('routine.deleteConfirm')}</Btn>
+                  ) : (
+                    <Btn small ghost color={C.red} onClick={() => setConfirmDeleteRoutine(true)}>{t('routine.deleteRoutine')}</Btn>
+                  )
+                )}
+              </div>
+              {showNewRoutine && addRoutine && (
+                <div className="flex gap-2">
+                  <input style={{ ...inputStyle, flex: 1 }} placeholder={t('routine.newPlaceholder')} value={newRoutineName} onChange={(e) => setNewRoutineName(e.target.value)} />
+                  <Btn small color={C.gold} onClick={() => { addRoutine(newRoutineName.trim() || null); setNewRoutineName(''); setShowNewRoutine(false); setManageOpen(false); }}>{t('common.create')}</Btn>
+                  <Btn small ghost onClick={() => { setShowNewRoutine(false); setNewRoutineName(''); }}>{t('common.cancel')}</Btn>
+                </div>
+              )}
+            </div>
+          )}
+        </Card>
+      )}
+
       <div className="grid grid-cols-3 gap-2">
-        {data.routine.days.map((d, i) => (
+        {routine.days.map((d, i) => (
           <button key={d.id} onClick={() => setDayIdx(i)} className="rounded-lg py-2 flex flex-col items-center gap-1" style={{
             background: i === dayIdx ? C.surface2 : 'transparent',
             border: '1px solid ' + (i === dayIdx ? d.color : C.line),
@@ -150,7 +209,7 @@ export default function RoutineTab({ data, dayIdx, setDayIdx, editMode, setEditM
         ))}
       </div>
 
-      <WarmupCard warmup={data.routine.warmup || []} doneToday={doneToday} toggleDone={toggleDone} />
+      <WarmupCard warmup={routine.warmup || []} doneToday={doneToday} toggleDone={toggleDone} />
 
       <div>
         <Belt color={day.color} stripeColor={day.stripeColor} total={day.exercises.length} done={doneCount} />

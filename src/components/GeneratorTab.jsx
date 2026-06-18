@@ -22,7 +22,7 @@ function formatDuration(min, lang) {
   return h + ' ' + hLabel + ' ' + m + ' ' + mLabel;
 }
 
-export default function GeneratorTab({ applyDays }) {
+export default function GeneratorTab({ applyDays, activeRoutineName }) {
   const { t, lang } = useLang();
   const [goal, setGoal] = useState('');
   const [nDays, setNDays] = useState(3);
@@ -36,6 +36,8 @@ export default function GeneratorTab({ applyDays }) {
   const [loading, setLoading] = useState(false);
   const [errMsg, setErrMsg] = useState('');
   const [preview, setPreview] = useState(null);
+  const [applyMode, setApplyMode] = useState(null);
+  const [newName, setNewName] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -182,7 +184,7 @@ export default function GeneratorTab({ applyDays }) {
     setLoading(false);
   }
 
-  function apply() {
+  function buildDays() {
     const ids = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
     const byName = {};
     LIBRARY.forEach((e) => {
@@ -190,7 +192,7 @@ export default function GeneratorTab({ applyDays }) {
       byName[pickLang(e.name, 'es').toLowerCase()] = e;
       byName[pickLang(e.name, 'en').toLowerCase()] = e;
     });
-    const built = preview.map((d, i) => {
+    return preview.map((d, i) => {
       const belt = BJJ_BELTS[i % BJJ_BELTS.length];
       return {
         id: ids[i] || String(i + 1),
@@ -211,8 +213,21 @@ export default function GeneratorTab({ applyDays }) {
         }),
       };
     });
-    applyDays(built);
+  }
+
+  function applyReplace() {
+    applyDays(buildDays(), { asNew: false });
     setPreview(null);
+    setApplyMode(null);
+    setNewName('');
+  }
+
+  function applyAsNew() {
+    const name = newName.trim() || (lang === 'en' ? 'New routine' : 'Nueva rutina');
+    applyDays(buildDays(), { asNew: true, name });
+    setPreview(null);
+    setApplyMode(null);
+    setNewName('');
   }
 
   const hasKey = !!(keys[provider] || '').trim();
@@ -347,10 +362,36 @@ export default function GeneratorTab({ applyDays }) {
               </div>
             </div>
           ))}
-          <div className="mt-4 flex gap-2">
-            <Btn color={C.green} onClick={apply}>{t('gen.applyAsRoutine')}</Btn>
-            <Btn ghost onClick={() => setPreview(null)}>{t('gen.discard')}</Btn>
-          </div>
+          {applyMode === 'new' ? (
+            <div className="mt-4 flex flex-col gap-2">
+              <Field label={t('gen.newRoutineName')}>
+                <input
+                  style={inputStyle}
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder={t('gen.newRoutinePlaceholder')}
+                />
+              </Field>
+              <div className="flex gap-2">
+                <Btn color={C.gold} onClick={applyAsNew}>{t('common.create')}</Btn>
+                <Btn ghost onClick={() => { setApplyMode(null); setNewName(''); }}>{t('common.cancel')}</Btn>
+              </div>
+            </div>
+          ) : applyMode === 'replace' ? (
+            <div className="mt-4 flex flex-col gap-2">
+              <p className="text-sm" style={{ color: C.red }}>{t('gen.replaceConfirm', { name: activeRoutineName || '' })}</p>
+              <div className="flex gap-2">
+                <Btn color={C.red} onClick={applyReplace}>{t('gen.replaceYes')}</Btn>
+                <Btn ghost onClick={() => setApplyMode(null)}>{t('common.cancel')}</Btn>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-4 flex flex-col gap-2">
+              <Btn color={C.gold} onClick={() => setApplyMode('new')}>{t('gen.saveAsNew')}</Btn>
+              <Btn ghost color={C.red} onClick={() => setApplyMode('replace')}>{t('gen.replaceActive', { name: activeRoutineName || '' })}</Btn>
+              <Btn ghost onClick={() => setPreview(null)}>{t('gen.discard')}</Btn>
+            </div>
+          )}
           <p className="text-xs mt-2" style={{ color: C.dim }}>{t('gen.applyNote')}</p>
         </Card>
       )}

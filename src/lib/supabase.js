@@ -74,11 +74,29 @@ export async function cloudSave(userId, payload) {
 // ---------- Data normalization ----------
 import { defaultRoutine, defaultWarmup } from '../data/exercises';
 import { BJJ_BELTS } from '../data/bjj';
+import { todayStr } from './utils';
+
+function defaultRoutineName(lang) {
+  return lang === 'en' ? 'My routine' : 'Mi rutina';
+}
+
+function normalizeRoutine(r, lang) {
+  const days = Array.isArray(r?.days) ? r.days.map((day, i) => {
+    const belt = BJJ_BELTS[i % BJJ_BELTS.length];
+    const { beltName, ...rest } = day;
+    return { ...rest, color: belt.color, stripeColor: belt.stripeColor };
+  }) : defaultRoutine(lang).days;
+  return {
+    id: r?.id || uid(),
+    name: r?.name || defaultRoutineName(lang),
+    createdAt: r?.createdAt || todayStr(),
+    warmup: Array.isArray(r?.warmup) ? r.warmup : defaultWarmup(lang),
+    days,
+  };
+}
 
 export function normalizeData(d, lang = 'es') {
   const n = d && typeof d === 'object' ? d : {};
-  if (!n.routine || !n.routine.days) n.routine = defaultRoutine(lang);
-  if (!n.routine.warmup) n.routine.warmup = defaultWarmup(lang);
   if (!n.metrics) n.metrics = [];
   if (!n.done) n.done = {};
   if (!n.profile) n.profile = {};
@@ -86,12 +104,20 @@ export function normalizeData(d, lang = 'es') {
   if (!n.profile.lang) n.profile.lang = lang;
   if (!Array.isArray(n.journal)) n.journal = [];
   if (!n.sessions || typeof n.sessions !== 'object' || Array.isArray(n.sessions)) n.sessions = {};
-  if (n.routine && Array.isArray(n.routine.days)) {
-    n.routine.days = n.routine.days.map((day, i) => {
-      const belt = BJJ_BELTS[i % BJJ_BELTS.length];
-      const { beltName, ...rest } = day;
-      return { ...rest, color: belt.color, stripeColor: belt.stripeColor };
-    });
+
+  // Migrate single `routine` to `routines[]`
+  if (n.routine && !Array.isArray(n.routines)) {
+    n.routines = [normalizeRoutine(n.routine, lang)];
+    delete n.routine;
+  }
+  if (!Array.isArray(n.routines) || n.routines.length === 0) {
+    const def = defaultRoutine(lang);
+    n.routines = [normalizeRoutine({ ...def, warmup: defaultWarmup(lang) }, lang)];
+  } else {
+    n.routines = n.routines.map((r) => normalizeRoutine(r, lang));
+  }
+  if (!n.profile.activeRoutineId || !n.routines.some((r) => r.id === n.profile.activeRoutineId)) {
+    n.profile.activeRoutineId = n.routines[0].id;
   }
   return n;
 }

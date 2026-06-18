@@ -165,44 +165,109 @@ export default function App() {
     ? { id: 'cloud', name: meta.full_name || meta.name || session.user.email || t('profile.active'), height: data && data.profile ? data.profile.height : null, createdAt: (session.user.created_at || '').slice(0, 10), email: session.user.email || '', avatar: meta.avatar_url || meta.picture || null }
     : (users.find((u) => u.id === activeId) || null);
 
-  // ---- Mutaciones de rutina ----
-  function patchExercise(dayId, exId, patch) {
-    const next = { ...data, routine: { ...data.routine, days: data.routine.days.map((d) => d.id !== dayId ? d : { ...d, exercises: d.exercises.map((e) => (e.id === exId ? { ...e, ...patch } : e)) }) } };
-    persistData(next);
+  // ---- Rutinas (multi) ----
+  const activeRoutine = data && data.routines ? (data.routines.find((r) => r.id === data.profile?.activeRoutineId) || data.routines[0]) : null;
+  const activeRoutineId = activeRoutine ? activeRoutine.id : null;
+
+  function patchActiveRoutine(patch) {
+    const routines = data.routines.map((r) => (r.id === activeRoutineId ? { ...r, ...patch } : r));
+    persistData({ ...data, routines });
   }
-  function addExercise(dayId) {
-    const ne = { id: uid(), name: lang === 'en' ? 'New exercise' : 'Nuevo ejercicio', sets: 3, reps: '10', video: '', muscle: '', tip: '' };
-    const next = { ...data, routine: { ...data.routine, days: data.routine.days.map((d) => (d.id !== dayId ? d : { ...d, exercises: [...d.exercises, ne] })) } };
-    persistData(next);
-  }
-  function removeExercise(dayId, exId) {
-    const next = { ...data, routine: { ...data.routine, days: data.routine.days.map((d) => (d.id !== dayId ? d : { ...d, exercises: d.exercises.filter((e) => e.id !== exId) })) } };
-    persistData(next);
-  }
-  function moveExercise(dayId, exId, dir) {
-    const next = {
-      ...data,
-      routine: {
-        ...data.routine,
-        days: data.routine.days.map((d) => {
-          if (d.id !== dayId) return d;
-          const arr = [...d.exercises];
-          const i = arr.findIndex((e) => e.id === exId);
-          const j = i + dir;
-          if (i < 0 || j < 0 || j >= arr.length) return d;
-          const tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
-          return { ...d, exercises: arr };
-        }),
-      },
-    };
-    persistData(next);
-  }
-  function resetRoutine() {
-    persistData({ ...data, routine: defaultRoutine(lang) });
+
+  function setActiveRoutine(id) {
+    if (!data.routines.some((r) => r.id === id)) return;
+    persistData({ ...data, profile: { ...(data.profile || {}), activeRoutineId: id } });
+    setDayIdx(0);
     setEditMode(false);
   }
-  function applyGeneratedDays(days) {
-    persistData({ ...data, routine: { warmup: (data.routine && data.routine.warmup) || defaultWarmup(lang), days } });
+
+  function addRoutine(name, source) {
+    const id = uid();
+    const baseDays = (source && Array.isArray(source.days)) ? source.days : defaultRoutine(lang).days;
+    const baseWarmup = (source && Array.isArray(source.warmup)) ? source.warmup : defaultWarmup(lang);
+    const newRoutine = {
+      id,
+      name: name || (lang === 'en' ? 'New routine' : 'Nueva rutina'),
+      createdAt: todayStr(),
+      warmup: baseWarmup,
+      days: baseDays,
+    };
+    persistData({
+      ...data,
+      routines: [...data.routines, newRoutine],
+      profile: { ...(data.profile || {}), activeRoutineId: id },
+    });
+    setDayIdx(0);
+    setEditMode(false);
+  }
+
+  function renameRoutine(id, name) {
+    const routines = data.routines.map((r) => (r.id === id ? { ...r, name: name || r.name } : r));
+    persistData({ ...data, routines });
+  }
+
+  function deleteRoutine(id) {
+    if (data.routines.length <= 1) return;
+    const routines = data.routines.filter((r) => r.id !== id);
+    const nextActive = data.profile?.activeRoutineId === id ? routines[0].id : data.profile?.activeRoutineId;
+    persistData({ ...data, routines, profile: { ...(data.profile || {}), activeRoutineId: nextActive } });
+    setDayIdx(0);
+    setEditMode(false);
+  }
+
+  function duplicateRoutine(id) {
+    const src = data.routines.find((r) => r.id === id);
+    if (!src) return;
+    addRoutine(`${src.name} ${lang === 'en' ? '(copy)' : '(copia)'}`, src);
+  }
+
+  // ---- Mutaciones de rutina activa ----
+  function patchExercise(dayId, exId, patch) {
+    if (!activeRoutine) return;
+    patchActiveRoutine({
+      days: activeRoutine.days.map((d) => d.id !== dayId ? d : { ...d, exercises: d.exercises.map((e) => (e.id === exId ? { ...e, ...patch } : e)) }),
+    });
+  }
+  function addExercise(dayId) {
+    if (!activeRoutine) return;
+    const ne = { id: uid(), name: lang === 'en' ? 'New exercise' : 'Nuevo ejercicio', sets: 3, reps: '10', video: '', muscle: '', tip: '' };
+    patchActiveRoutine({
+      days: activeRoutine.days.map((d) => (d.id !== dayId ? d : { ...d, exercises: [...d.exercises, ne] })),
+    });
+  }
+  function removeExercise(dayId, exId) {
+    if (!activeRoutine) return;
+    patchActiveRoutine({
+      days: activeRoutine.days.map((d) => (d.id !== dayId ? d : { ...d, exercises: d.exercises.filter((e) => e.id !== exId) })),
+    });
+  }
+  function moveExercise(dayId, exId, dir) {
+    if (!activeRoutine) return;
+    patchActiveRoutine({
+      days: activeRoutine.days.map((d) => {
+        if (d.id !== dayId) return d;
+        const arr = [...d.exercises];
+        const i = arr.findIndex((e) => e.id === exId);
+        const j = i + dir;
+        if (i < 0 || j < 0 || j >= arr.length) return d;
+        const tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+        return { ...d, exercises: arr };
+      }),
+    });
+  }
+  function resetRoutine() {
+    if (!activeRoutine) return;
+    const def = defaultRoutine(lang);
+    patchActiveRoutine({ days: def.days, warmup: defaultWarmup(lang) });
+    setEditMode(false);
+  }
+  function applyGeneratedDays(days, opts = {}) {
+    if (opts.asNew) {
+      addRoutine(opts.name, { days, warmup: activeRoutine?.warmup || defaultWarmup(lang) });
+    } else {
+      if (!activeRoutine) return;
+      patchActiveRoutine({ days, warmup: activeRoutine.warmup || defaultWarmup(lang) });
+    }
     setDayIdx(0);
     setEditMode(false);
     setTab('rutina');
@@ -215,29 +280,27 @@ export default function App() {
   }
 
   function setExerciseUnit(dayId, exId, unit) {
-    const next = {
-      ...data,
-      routine: {
-        ...data.routine,
-        days: data.routine.days.map((d) => (d.id !== dayId ? d : {
-          ...d,
-          exercises: d.exercises.map((e) => (e.id === exId ? { ...e, unit } : e)),
-        })),
-      },
-    };
-    persistData(next);
+    if (!activeRoutine) return;
+    patchActiveRoutine({
+      days: activeRoutine.days.map((d) => (d.id !== dayId ? d : {
+        ...d,
+        exercises: d.exercises.map((e) => (e.id === exId ? { ...e, unit } : e)),
+      })),
+    });
   }
 
   // ---- Sesiones de entrenamiento ----
   function setExerciseWeight(exId, weightKg, meta = {}) {
+    if (!activeRoutine) return;
     const tDate = todayStr();
-    const dayId = data.routine.days[Math.min(dayIdx, data.routine.days.length - 1)].id;
+    const dayId = activeRoutine.days[Math.min(dayIdx, activeRoutine.days.length - 1)].id;
     const sessions = { ...(data.sessions || {}) };
     const cur = sessions[tDate] || { date: tDate, dayId, notes: '', exercises: {} };
     const prev = cur.exercises[exId] || {};
     sessions[tDate] = {
       ...cur,
       dayId,
+      routineId: cur.routineId || activeRoutineId,
       exercises: {
         ...cur.exercises,
         [exId]: {
@@ -252,11 +315,12 @@ export default function App() {
   }
 
   function setSessionNotes(notes) {
+    if (!activeRoutine) return;
     const tDate = todayStr();
-    const dayId = data.routine.days[Math.min(dayIdx, data.routine.days.length - 1)].id;
+    const dayId = activeRoutine.days[Math.min(dayIdx, activeRoutine.days.length - 1)].id;
     const sessions = { ...(data.sessions || {}) };
     const cur = sessions[tDate] || { date: tDate, dayId, notes: '', exercises: {} };
-    sessions[tDate] = { ...cur, dayId, notes: notes || '' };
+    sessions[tDate] = { ...cur, dayId, routineId: cur.routineId || activeRoutineId, notes: notes || '' };
     persistData({ ...data, sessions });
   }
 
@@ -391,6 +455,14 @@ export default function App() {
         {tab === 'rutina' && data && (
           <RoutineTab
             data={data}
+            routine={activeRoutine}
+            routines={data.routines}
+            activeRoutineId={activeRoutineId}
+            setActiveRoutine={setActiveRoutine}
+            renameRoutine={renameRoutine}
+            deleteRoutine={deleteRoutine}
+            duplicateRoutine={duplicateRoutine}
+            addRoutine={addRoutine}
             dayIdx={dayIdx}
             setDayIdx={setDayIdx}
             editMode={editMode}
@@ -409,7 +481,7 @@ export default function App() {
           />
         )}
         {tab === 'generar' && data && (
-          <GeneratorTab applyDays={applyGeneratedDays} />
+          <GeneratorTab applyDays={applyGeneratedDays} activeRoutineName={activeRoutine?.name || ''} />
         )}
         {tab === 'progreso' && data && (
           <ProgressTab
