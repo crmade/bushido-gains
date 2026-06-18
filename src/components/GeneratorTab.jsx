@@ -102,15 +102,17 @@ export default function GeneratorTab({ applyDays, activeRoutineName }) {
       'USER GOAL AND CONTEXT: ' + goal.trim(),
       'TRAINING DAYS PER WEEK: ' + nDays,
       'SESSION TIME: ' + minutes + ' minutes. Includes short warm-up, approach sets and rest.',
-      'ALLOWED EXERCISE LIBRARY (use ONLY these, copying the EXACT name):',
+      'PREFERRED EXERCISE LIBRARY (these have curated technique videos — when one fits, copy the EXACT name):',
       JSON.stringify(lib),
+      'You may also suggest exercises OUTSIDE this library when the goal requires them. For library exercises, copy the name exactly so we can attach the video. For non-library exercises, use a clear, standard English name and include the primary "muscle" group (e.g. "Chest", "Back", "Hamstrings", "Glutes", "Core").',
     ] : [
       'Eres un entrenador experto en fuerza e hipertrofia. Diseña una rutina de gimnasio personalizada.',
       'OBJETIVO Y CONTEXTO DEL USUARIO: ' + goal.trim(),
       'DÍAS DE ENTRENAMIENTO POR SEMANA: ' + nDays,
       'TIEMPO POR SESIÓN: ' + minutes + ' minutos. Incluye calentamiento corto, series de aproximación y descansos.',
-      'BIBLIOTECA DE EJERCICIOS PERMITIDOS (usa SOLO estos, copiando el nombre EXACTO):',
+      'BIBLIOTECA DE EJERCICIOS PREFERIDA (tienen video de técnica curado — cuando alguno encaje, copia el nombre EXACTO):',
       JSON.stringify(lib),
+      'Puedes sugerir ejercicios FUERA de esta biblioteca cuando el objetivo lo requiera. Para los de la biblioteca, copia el nombre exacto para poder atar el video. Para los nuevos, usa un nombre estándar en español e incluye el grupo "muscle" principal (ej: "Pecho", "Espalda", "Femoral", "Glúteo", "Core").',
     ];
 
     if (hasInjuryInput) {
@@ -144,7 +146,7 @@ export default function GeneratorTab({ applyDays, activeRoutineName }) {
       }
       promptLines.push(
         'Respond ONLY with valid JSON, no markdown or extra text, with this exact structure:',
-        '{"days":[{"name":"Day A","exercises":[{"name":"Barbell back squat","sets":4,"reps":"6-8","tip":"..."}]}]}',
+        '{"days":[{"name":"Day A","exercises":[{"name":"Barbell back squat","sets":4,"reps":"6-8","muscle":"Quads","tip":"..."}]}]}',
       );
     } else {
       promptLines.push(
@@ -165,7 +167,7 @@ export default function GeneratorTab({ applyDays, activeRoutineName }) {
       }
       promptLines.push(
         'Responde ÚNICAMENTE con JSON válido, sin markdown ni texto extra, con esta estructura exacta:',
-        '{"days":[{"name":"Día A","exercises":[{"name":"Sentadilla con barra","sets":4,"reps":"6-8","tip":"..."}]}]}',
+        '{"days":[{"name":"Día A","exercises":[{"name":"Sentadilla con barra","sets":4,"reps":"6-8","muscle":"Cuádriceps","tip":"..."}]}]}',
       );
     }
 
@@ -207,7 +209,7 @@ export default function GeneratorTab({ applyDays, activeRoutineName }) {
             sets: Number(x.sets) || 3,
             reps: String(x.reps || '10'),
             video: found ? found.video : '',
-            muscle: found ? pickLang(found.muscle, lang) : '',
+            muscle: found ? pickLang(found.muscle, lang) : (x.muscle || ''),
             tip: x.tip || '',
           };
         }),

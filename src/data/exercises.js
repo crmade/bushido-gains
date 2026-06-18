@@ -58,6 +58,17 @@ const MUSCLES = {
   grip: { es: 'Agarre y core', en: 'Grip and core' },
   bicepsForearm: { es: 'Bíceps y antebrazo', en: 'Biceps and forearm' },
   legPower: { es: 'Potencia de piernas', en: 'Leg power' },
+  quads: { es: 'Cuádriceps', en: 'Quadriceps' },
+  hamstrings: { es: 'Isquios', en: 'Hamstrings' },
+  lats: { es: 'Dorsales', en: 'Lats' },
+  traps: { es: 'Trapecios', en: 'Traps' },
+  lateralDelt: { es: 'Deltoides lateral', en: 'Lateral deltoid' },
+  forearm: { es: 'Antebrazo', en: 'Forearm' },
+  obliques: { es: 'Oblicuos', en: 'Obliques' },
+  calves: { es: 'Pantorrillas', en: 'Calves' },
+  adductors: { es: 'Aductores', en: 'Adductors' },
+  neck: { es: 'Cuello', en: 'Neck' },
+  fullBody: { es: 'Cuerpo completo', en: 'Full body' },
 };
 
 const m = (key, lang) => MUSCLES[key][lang] || MUSCLES[key].es;
@@ -94,6 +105,51 @@ const LIBRARY_RAW = [
   LI({ es: 'Plancha abdominal', en: 'Plank' }, 'core', 'O4bNV8W4CkU', ['corporal']),
   LI({ es: 'Remo invertido en TRX', en: 'TRX inverted row' }, 'back', '9_iEY6nT8TM', ['trx']),
   LI({ es: 'Box jump (salto al cajón)', en: 'Box jump' }, 'legPower', 'bbFEYR3i8JU', ['cajon']),
+
+  // ---- Piernas / cadera ----
+  LI({ es: 'Sentadilla frontal con barra', en: 'Front squat' }, 'quads', '', ['barra', 'rack']),
+  LI({ es: 'Peso muerto rumano con barra', en: 'Romanian deadlift' }, 'hamstrings', '', ['barra']),
+  LI({ es: 'Peso muerto rumano a una pierna', en: 'Single-leg Romanian deadlift' }, 'hamstrings', '', ['mancuernas']),
+  LI({ es: 'Zancadas caminando con mancuernas', en: 'Walking lunges with dumbbells' }, 'legs', '', ['mancuernas']),
+  LI({ es: 'Step-up con mancuernas', en: 'Step-up with dumbbells' }, 'legs', '', ['cajon', 'mancuernas']),
+  LI({ es: 'Sentadilla cosaca', en: 'Cossack squat' }, 'adductors', '', ['corporal']),
+  LI({ es: 'Sentadilla con salto', en: 'Jump squat' }, 'legPower', '', ['corporal']),
+  LI({ es: 'Pantorrillas de pie con mancuernas', en: 'Standing calf raise' }, 'calves', '', ['mancuernas']),
+
+  // ---- Pecho ----
+  LI({ es: 'Aperturas en polea', en: 'Cable chest fly' }, 'chest', '', ['polea']),
+  LI({ es: 'Fondos en paralelas', en: 'Parallel bar dips' }, 'chest', '', ['dominadas']),
+  LI({ es: 'Push-up hindú', en: 'Hindu push-up' }, 'chest', '', ['corporal']),
+
+  // ---- Espalda ----
+  LI({ es: 'Jalón al pecho en polea', en: 'Lat pulldown' }, 'lats', '', ['polea']),
+  LI({ es: 'Pullover con mancuerna', en: 'Dumbbell pullover' }, 'lats', '', ['mancuernas', 'banco']),
+  LI({ es: 'Encogimientos con mancuernas', en: 'Dumbbell shrugs' }, 'traps', '', ['mancuernas']),
+  LI({ es: 'Dominadas con agarre supino (chin-ups)', en: 'Chin-ups' }, 'back', '', ['dominadas']),
+
+  // ---- Hombros ----
+  LI({ es: 'Elevaciones laterales con mancuernas', en: 'Dumbbell lateral raise' }, 'lateralDelt', '', ['mancuernas']),
+  LI({ es: 'Pájaros con mancuernas', en: 'Bent-over dumbbell rear delt fly' }, 'rearDelt', '', ['mancuernas', 'banco']),
+  LI({ es: 'Press Arnold con mancuernas', en: 'Arnold press' }, 'shoulders', '', ['mancuernas']),
+
+  // ---- Brazos ----
+  LI({ es: 'Curl predicador con barra Z', en: 'EZ-bar preacher curl' }, 'biceps', '', ['barra', 'banco']),
+  LI({ es: 'Curl concentrado con mancuerna', en: 'Concentration curl' }, 'biceps', '', ['mancuernas', 'banco']),
+  LI({ es: 'Press cerrado en banca', en: 'Close-grip bench press' }, 'triceps', '', ['barra', 'banco', 'rack']),
+  LI({ es: 'Skullcrushers con barra Z', en: 'EZ-bar skullcrushers' }, 'triceps', '', ['barra', 'banco']),
+  LI({ es: 'Fondos en banco para tríceps', en: 'Bench dips' }, 'triceps', '', ['banco']),
+  LI({ es: 'Curl inverso con barra', en: 'Reverse barbell curl' }, 'forearm', '', ['barra']),
+
+  // ---- Core ----
+  LI({ es: 'Ab wheel rollout', en: 'Ab wheel rollout' }, 'core', '', ['corporal']),
+  LI({ es: 'Dead bug', en: 'Dead bug' }, 'core', '', ['corporal']),
+  LI({ es: 'Plancha lateral', en: 'Side plank' }, 'obliques', '', ['corporal']),
+  LI({ es: 'Crunch en polea', en: 'Cable crunch' }, 'core', '', ['polea']),
+  LI({ es: 'Russian twist con kettlebell', en: 'Russian twist with kettlebell' }, 'obliques', '', ['kettlebell']),
+
+  // ---- BJJ-específico / cuerpo completo ----
+  LI({ es: 'Turkish get-up con kettlebell', en: 'Turkish get-up' }, 'fullBody', '', ['kettlebell']),
+  LI({ es: 'Puente de cuello (neck bridge)', en: 'Neck bridge' }, 'neck', '', ['corporal']),
 ];
 
 // Library exposed with resolved muscle lookup.

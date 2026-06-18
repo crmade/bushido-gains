@@ -154,7 +154,7 @@ const es = {
   'sessions.addNotes': 'Agregar notas',
   // Generator
   'gen.title': 'Generar rutina con IA',
-  'gen.intro': 'Describe tu objetivo, marca el equipo que tienes y las lesiones a evitar. La IA arma un plan usando la biblioteca de {n} ejercicios.',
+  'gen.intro': 'Describe tu objetivo, marca el equipo que tienes y las lesiones a evitar. La IA prioriza una biblioteca de {n} ejercicios con video curado y puede sumar otros si tu objetivo lo pide.',
   'gen.goal': '¿Qué buscas? (objetivo, deporte, tiempo, contexto…)',
   'gen.goalPlaceholder': 'Ej: practico BJJ 3 veces por semana, quiero ganar masa muscular y fuerza de agarre.',
   'gen.daysPerWeek': 'Días por semana',
@@ -391,7 +391,7 @@ const en = {
   'sessions.addNotes': 'Add notes',
   // Generator
   'gen.title': 'Generate routine with AI',
-  'gen.intro': 'Describe your goal, mark your equipment and injuries to avoid. The AI builds a plan using the library of {n} exercises.',
+  'gen.intro': 'Describe your goal, mark your equipment and injuries to avoid. The AI prefers a library of {n} exercises with curated video, and may add others when your goal calls for them.',
   'gen.goal': 'What are you after? (goal, sport, time, context…)',
   'gen.goalPlaceholder': 'E.g.: I train BJJ 3x/week, want to gain muscle and grip strength.',
   'gen.daysPerWeek': 'Days per week',
