@@ -3,6 +3,7 @@ import { C, FONT_DISPLAY } from './lib/theme';
 import { uid, todayStr } from './lib/utils';
 import { sb, hasStorage, store, cloudLoad, cloudSave, normalizeData } from './lib/supabase';
 import { defaultRoutine, defaultWarmup } from './data/exercises';
+import { BJJ_BELTS } from './data/bjj';
 import { useLang } from './lib/i18n.jsx';
 import Shell from './components/Shell';
 import Onboard from './components/Onboard';
@@ -81,6 +82,13 @@ export default function App() {
     if (!sb) return;
     lastUid.current = null;
     await sb.auth.signOut();
+  }
+
+  async function signOutLocal() {
+    setActiveId(null);
+    setData(null);
+    setPhase('onboard');
+    await store.set('gymapp:users', { list: users, activeId: null });
   }
 
   async function importLocalToCloud(localId) {
@@ -219,6 +227,21 @@ export default function App() {
     const src = data.routines.find((r) => r.id === id);
     if (!src) return;
     addRoutine(`${src.name} ${lang === 'en' ? '(copy)' : '(copia)'}`, src);
+  }
+
+  function addEmptyRoutine(name) {
+    const ids = ['A', 'B', 'C'];
+    const emptyDays = ids.map((id, i) => {
+      const belt = BJJ_BELTS[i % BJJ_BELTS.length];
+      return {
+        id,
+        name: (lang === 'en' ? 'Day ' : 'Día ') + id,
+        color: belt.color,
+        stripeColor: belt.stripeColor,
+        exercises: [],
+      };
+    });
+    addRoutine(name, { days: emptyDays, warmup: defaultWarmup(lang) });
   }
 
   // ---- Mutaciones de rutina activa ----
@@ -414,7 +437,15 @@ export default function App() {
   if (phase === 'onboard') {
     return (
       <Shell>
-        <Onboard onCreate={createUser} saveWarn={saveWarn} sbReady={!!sb} onSignIn={signInGoogle} units={'kg'} />
+        <Onboard
+          onCreate={createUser}
+          saveWarn={saveWarn}
+          sbReady={!!sb}
+          onSignIn={signInGoogle}
+          units={'kg'}
+          users={users}
+          onPickUser={(id) => loadUser(id)}
+        />
       </Shell>
     );
   }
@@ -463,6 +494,8 @@ export default function App() {
             deleteRoutine={deleteRoutine}
             duplicateRoutine={duplicateRoutine}
             addRoutine={addRoutine}
+            addEmptyRoutine={addEmptyRoutine}
+            goToGenerator={() => setTab('generar')}
             dayIdx={dayIdx}
             setDayIdx={setDayIdx}
             editMode={editMode}
@@ -527,6 +560,7 @@ export default function App() {
               deleteUser={deleteUser}
               sbReady={!!sb}
               onSignIn={signInGoogle}
+              onSignOut={signOutLocal}
               units={units}
               setLang={setLangAndPersist}
               setUnits={setUnitsAndPersist}

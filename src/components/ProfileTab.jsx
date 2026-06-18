@@ -7,13 +7,14 @@ import Btn from './Btn';
 import Card from './Card';
 import Field from './Field';
 
-export default function ProfileTab({ users, activeUser, data, loadUser, createUser, updateUser, deleteUser, sbReady, onSignIn, units = 'kg', setLang, setUnits }) {
+export default function ProfileTab({ users, activeUser, data, loadUser, createUser, updateUser, deleteUser, sbReady, onSignIn, onSignOut, units = 'kg', setLang, setUnits }) {
   const { t, lang } = useLang();
   const [name, setName] = useState('');
   const [height, setHeight] = useState('');
   const [editH, setEditH] = useState('');
   const [confirmDel, setConfirmDel] = useState(null);
   const [showNew, setShowNew] = useState(false);
+  const [confirmOut, setConfirmOut] = useState(false);
 
   return (
     <div className="flex flex-col gap-4">
@@ -114,6 +115,20 @@ export default function ProfileTab({ users, activeUser, data, loadUser, createUs
           </div>
         )}
       </Card>
+
+      {onSignOut && activeUser && (
+        <Card style={{ background: C.surface2 }}>
+          {confirmOut ? (
+            <div className="flex gap-2">
+              <Btn color={C.red} onClick={onSignOut}>{t('profile.closeProfileConfirm')}</Btn>
+              <Btn ghost onClick={() => setConfirmOut(false)}>{t('common.cancel')}</Btn>
+            </div>
+          ) : (
+            <Btn full ghost color={C.red} onClick={() => setConfirmOut(true)}>{t('profile.closeProfile')}</Btn>
+          )}
+          <p className="text-xs mt-2" style={{ color: C.dim }}>{t('profile.closeProfileNote')}</p>
+        </Card>
+      )}
 
       <Card style={{ background: C.surface2 }}>
         <p className="text-sm" style={{ color: C.dim }}>{t('profile.note')}</p>

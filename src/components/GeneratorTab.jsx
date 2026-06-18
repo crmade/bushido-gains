@@ -388,7 +388,9 @@ export default function GeneratorTab({ applyDays, activeRoutineName }) {
           ) : (
             <div className="mt-4 flex flex-col gap-2">
               <Btn color={C.gold} onClick={() => setApplyMode('new')}>{t('gen.saveAsNew')}</Btn>
-              <Btn ghost color={C.red} onClick={() => setApplyMode('replace')}>{t('gen.replaceActive', { name: activeRoutineName || '' })}</Btn>
+              {activeRoutineName && (
+                <Btn ghost color={C.red} onClick={() => setApplyMode('replace')}>{t('gen.replaceActive', { name: activeRoutineName })}</Btn>
+              )}
               <Btn ghost onClick={() => setPreview(null)}>{t('gen.discard')}</Btn>
             </div>
           )}

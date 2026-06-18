@@ -123,7 +123,7 @@ function SessionNotes({ value, onSave }) {
   );
 }
 
-export default function RoutineTab({ data, routine, routines, activeRoutineId, setActiveRoutine, renameRoutine, deleteRoutine, duplicateRoutine, addRoutine, dayIdx, setDayIdx, editMode, setEditMode, patchExercise, addExercise, removeExercise, moveExercise, resetRoutine, toggleDone, sessions, setExerciseWeight, setExerciseUnit, setSessionNotes, units }) {
+export default function RoutineTab({ data, routine, routines, activeRoutineId, setActiveRoutine, renameRoutine, deleteRoutine, duplicateRoutine, addRoutine, addEmptyRoutine, goToGenerator, dayIdx, setDayIdx, editMode, setEditMode, patchExercise, addExercise, removeExercise, moveExercise, resetRoutine, toggleDone, sessions, setExerciseWeight, setExerciseUnit, setSessionNotes, units }) {
   const { t, lang } = useLang();
   const [confirmReset, setConfirmReset] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
@@ -131,6 +131,41 @@ export default function RoutineTab({ data, routine, routines, activeRoutineId, s
   const [confirmDeleteRoutine, setConfirmDeleteRoutine] = useState(false);
   const [newRoutineName, setNewRoutineName] = useState('');
   const [showNewRoutine, setShowNewRoutine] = useState(false);
+  const [emptyNameDraft, setEmptyNameDraft] = useState('');
+  const [showEmptyForm, setShowEmptyForm] = useState(false);
+
+  if (!routine) {
+    return (
+      <div className="flex flex-col gap-4">
+        <Card>
+          <h3 style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 26, textTransform: 'uppercase' }}>{t('routine.emptyTitle')}</h3>
+          <p className="text-sm mt-2" style={{ color: C.dim }}>{t('routine.emptyBody')}</p>
+          <div className="mt-4 flex flex-col gap-2">
+            {goToGenerator && (
+              <Btn full color={C.gold} onClick={goToGenerator}>{t('routine.emptyGenerate')}</Btn>
+            )}
+            {addEmptyRoutine && !showEmptyForm && (
+              <Btn full ghost onClick={() => setShowEmptyForm(true)}>{t('routine.emptyCreate')}</Btn>
+            )}
+            {showEmptyForm && (
+              <div className="flex gap-2">
+                <input
+                  style={{ ...inputStyle, flex: 1 }}
+                  placeholder={t('routine.newPlaceholder')}
+                  value={emptyNameDraft}
+                  onChange={(e) => setEmptyNameDraft(e.target.value)}
+                  autoFocus
+                />
+                <Btn small color={C.gold} onClick={() => { addEmptyRoutine(emptyNameDraft.trim() || null); setEmptyNameDraft(''); setShowEmptyForm(false); }}>{t('common.create')}</Btn>
+                <Btn small ghost onClick={() => { setShowEmptyForm(false); setEmptyNameDraft(''); }}>{t('common.cancel')}</Btn>
+              </div>
+            )}
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   const day = routine.days[Math.min(dayIdx, routine.days.length - 1)];
   const today = todayStr();
   const doneToday = data.done[today] || {};

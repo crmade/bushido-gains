@@ -110,13 +110,11 @@ export function normalizeData(d, lang = 'es') {
     n.routines = [normalizeRoutine(n.routine, lang)];
     delete n.routine;
   }
-  if (!Array.isArray(n.routines) || n.routines.length === 0) {
-    const def = defaultRoutine(lang);
-    n.routines = [normalizeRoutine({ ...def, warmup: defaultWarmup(lang) }, lang)];
-  } else {
-    n.routines = n.routines.map((r) => normalizeRoutine(r, lang));
-  }
-  if (!n.profile.activeRoutineId || !n.routines.some((r) => r.id === n.profile.activeRoutineId)) {
+  if (!Array.isArray(n.routines)) n.routines = [];
+  n.routines = n.routines.map((r) => normalizeRoutine(r, lang));
+  if (n.routines.length === 0) {
+    n.profile.activeRoutineId = null;
+  } else if (!n.profile.activeRoutineId || !n.routines.some((r) => r.id === n.profile.activeRoutineId)) {
     n.profile.activeRoutineId = n.routines[0].id;
   }
   return n;

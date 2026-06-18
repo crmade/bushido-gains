@@ -6,12 +6,13 @@ import Btn from './Btn';
 import Card from './Card';
 import Field from './Field';
 
-export default function Onboard({ onCreate, saveWarn, sbReady, onSignIn, units = 'kg' }) {
+export default function Onboard({ onCreate, saveWarn, sbReady, onSignIn, units = 'kg', users = [], onPickUser }) {
   const { t } = useLang();
   const [name, setName] = useState('');
   const [height, setHeight] = useState('');
   const [weight, setWeight] = useState('');
   const [err, setErr] = useState('');
+  const [showCreate, setShowCreate] = useState(users.length === 0);
 
   return (
     <div className="px-5 pt-12 pb-10">
@@ -33,6 +34,27 @@ export default function Onboard({ onCreate, saveWarn, sbReady, onSignIn, units =
           <p className="text-xs text-center mt-2" style={{ color: C.dim }}>{t('onboard.googleHint')}</p>
         </div>
       )}
+      {users.length > 0 && onPickUser && (
+        <Card className="mb-4">
+          <p className="text-xs uppercase tracking-wider mb-2" style={{ color: C.gold }}>{t('onboard.existingProfiles')}</p>
+          <div className="flex flex-col gap-2">
+            {users.map((u) => (
+              <button
+                key={u.id}
+                onClick={() => onPickUser(u.id)}
+                className="rounded-lg px-3 py-2 text-left font-semibold"
+                style={{ background: C.surface2, border: '1px solid ' + C.line, color: C.text, cursor: 'pointer' }}
+              >{u.name}</button>
+            ))}
+          </div>
+          {!showCreate && (
+            <div className="mt-3">
+              <Btn full ghost color={C.gold} onClick={() => setShowCreate(true)}>{t('onboard.createAnother')}</Btn>
+            </div>
+          )}
+        </Card>
+      )}
+      {!showCreate ? null : (
       <Card>
         <div className="flex flex-col gap-4">
           <Field label={t('onboard.name')}>
@@ -55,6 +77,7 @@ export default function Onboard({ onCreate, saveWarn, sbReady, onSignIn, units =
           }}>{t('onboard.create')}</Btn>
         </div>
       </Card>
+      )}
     </div>
   );
 }
